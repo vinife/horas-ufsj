@@ -3,7 +3,9 @@
 import { Header } from "@/components/ds/header"
 import { UploadCard } from "@/components/ds/uploadcard"
 
-export default function StudentDashboardLayout({ children }: { children: React.ReactNode }) {
+export default function StudentDashboardLayout()
+// ({ children }: { children: React.ReactNode })
+{
   return (
     <div className="min-h-screen flex flex-col">
       <Header
