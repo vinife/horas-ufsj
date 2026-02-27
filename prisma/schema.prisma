@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// prisma/schema.prisma
+
+generator client {
+  provider   = "prisma-client"
+  output     = "./generated"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql" // ou mysql
+
+  
+}
+
+// Enums (Tipos fixos) facilitam muito a lógica
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
+enum Status {
+  PENDENTE
+  APROVADO
+  REJEITADO
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  image         String?
+  role          UserRole  @default(STUDENT) // Define quem é quem
+  createdAt     DateTime  @default(now())
+
+  // Relacionamento: Um aluno tem vários certificados
+  certificados  Certificate[]
+}
+
+model Certificate {
+  id            String   @id @default(cuid())
+  title         String   // Ex: "Curso de Python"
+  description   String?
+  hours         Int      // Quantidade de horas solicitadas
+  
+  // Dados do Google Drive
+  fileUrl       String   // O link para ver o arquivo
+  fileId        String   // O ID do Google Drive (para deletar depois se precisar)
+
+  status        Status   @default(PENDENTE)
+  feedback      String?  // Motivo do indeferimento (escrito pelo admin)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Conexão com o Aluno
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
