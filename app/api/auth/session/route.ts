@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
         name: session.name,
         email: session.email,
         role: session.role,
+        isMasterAdmin: Boolean(session.isMasterAdmin),
       },
     },
     { status: 200 },

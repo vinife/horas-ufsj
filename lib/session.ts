@@ -10,6 +10,7 @@ export type SessionPayload = {
   name?: string;
   provider: "google" | "institucional";
   role: "student" | "admin";
+  isMasterAdmin?: boolean;
 };
 
 function sessionKey(sessionId: string) {

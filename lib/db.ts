@@ -1,7 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-// @ts-ignore: No type definitions for 'pg'
 import { Pool } from "pg";
 
 const globalForPrisma = globalThis as unknown as {

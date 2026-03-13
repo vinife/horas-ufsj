@@ -9,6 +9,7 @@ export type AuthUser = {
   name?: string
   email?: string
   role: "student" | "admin"
+  isMasterAdmin?: boolean
 }
 
 type AuthState = {

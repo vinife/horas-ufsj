@@ -28,14 +28,20 @@ export type UploadedFile = {
 }
 
 type UploadCardProps = {
+  title?: string
+  endpoint?: string
   className?: string
   files?: UploadedFile[]
   onUpload?: (files: File[]) => void | Promise<void>
   onDelete?: (id: string) => void | Promise<void>
 }
 
-async function fetchFiles(): Promise<UploadedFile[]> {
-  const res = await fetch("/api/uploads")
+type UploadProgressContext = {
+  setProgress: (progress: number) => void
+}
+
+async function fetchFiles(endpoint: string): Promise<UploadedFile[]> {
+  const res = await fetch(endpoint)
   if (!res.ok) {
     throw new Error("Failed to fetch files")
   }
@@ -46,48 +52,104 @@ async function fetchFiles(): Promise<UploadedFile[]> {
 function formatStatus(status: FileStatus) {
   switch (status) {
     case "APROVADO":
-      return { label: "Aprovado", variant: "default" as const }
+      return { label: "Aprovado", variant: "approved" as const }
     case "REJEITADO":
-      return { label: "Rejeitado", variant: "destructive" as const }
+      return { label: "Rejeitado", variant: "denied" as const }
     default:
-      return { label: "Pendente", variant: "secondary" as const }
+      return { label: "Pendente", variant: "pending" as const }
   }
 }
 
 export function UploadCard({
+  title = "Enviar comprovantes",
+  endpoint = "/api/student/uploads",
   className,
   files: providedFiles,
   onUpload,
   onDelete,
 }: UploadCardProps) {
   const queryClient = useQueryClient()
+  const queryKey = React.useMemo(() => ["uploads", endpoint], [endpoint])
   const {
     data: fetchedFiles,
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["uploads"],
-    queryFn: fetchFiles,
+    queryKey,
+    queryFn: () => fetchFiles(endpoint),
     enabled: !providedFiles,
   })
 
   const files = providedFiles ?? fetchedFiles ?? []
 
+  const uploadSingleFile = React.useCallback(
+    async (file: File, context: UploadProgressContext) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("title", file.name.replace(/\.[^.]+$/, ""))
+      formData.append("hours", "1")
+
+      const result = await new Promise<{ ok: true } | { ok: false; error: string }>(
+        (resolve) => {
+          const xhr = new XMLHttpRequest()
+
+          xhr.open("POST", endpoint)
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              context.setProgress((event.loaded / event.total) * 100)
+            }
+          }
+          xhr.onerror = () => {
+            resolve({ ok: false, error: "Falha de conexão ao enviar arquivo." })
+          }
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              context.setProgress(100)
+              resolve({ ok: true })
+              return
+            }
+
+            try {
+              const data = JSON.parse(xhr.responseText) as { error?: string }
+              resolve({
+                ok: false,
+                error: data.error ?? "Falha ao enviar arquivo.",
+              })
+            } catch {
+              resolve({ ok: false, error: "Falha ao enviar arquivo." })
+            }
+          }
+
+          xhr.send(formData)
+        },
+      )
+
+      if (!result.ok) {
+        return { status: "error" as const, error: result.error }
+      }
+
+      await queryClient.invalidateQueries({ queryKey })
+      return { status: "success" as const }
+    },
+    [endpoint, queryClient, queryKey],
+  )
+
   const handleDelete = async (id: string) => {
     if (!onDelete) return
     await onDelete(id)
-    await queryClient.invalidateQueries({ queryKey: ["uploads"] })
+    await queryClient.invalidateQueries({ queryKey })
   }
 
   return (
     <Card className={cn("space-y-6", className)}>
       <Card.Header className="space-y-1">
-        <Card.Title>Enviar comprovantes</Card.Title>
+        <Card.Title>{title}</Card.Title>
       </Card.Header>
 
       <Card.Content className="space-y-6">
         <UploadInput
           multiple
+          uploadFile={uploadSingleFile}
           onChange={(files) => onUpload?.(files)}
         />
 

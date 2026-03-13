@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import {
+  type ComponentProps,
   createContext,
   forwardRef,
   useCallback,
@@ -14,7 +15,9 @@ import {
   FileRejection,
   useDropzone as rootUseDropzone,
 } from "react-dropzone";
-import { Button, ButtonProps } from "./button";
+import { Button } from "./button";
+
+type ButtonProps = ComponentProps<typeof Button>;
 
 type DropzoneResult<TUploadRes, TUploadError> =
   | {
@@ -34,6 +37,7 @@ export type FileStatus<TUploadRes, TUploadError> = {
   fileName: string;
   file: File;
   tries: number;
+  progress: number;
 } & (
   | {
       status: "pending";
@@ -65,6 +69,11 @@ const fileStatusReducer = <TUploadRes, TUploadError>(
         type: "remove";
         id: string;
       }
+    | {
+        type: "update-progress";
+        id: string;
+        progress: number;
+      }
     | ({
         type: "update-status";
         id: string;
@@ -80,22 +89,49 @@ const fileStatusReducer = <TUploadRes, TUploadError>(
           file: action.file,
           status: "pending",
           tries: 1,
+          progress: 0,
         },
       ];
     case "remove":
       return state.filter((fileStatus) => fileStatus.id !== action.id);
+    case "update-progress":
+      return state.map((fileStatus) => {
+        if (fileStatus.id === action.id) {
+          return {
+            ...fileStatus,
+            progress: Math.max(0, Math.min(100, action.progress)),
+          };
+        }
+        return fileStatus;
+      });
     case "update-status":
       return state.map((fileStatus) => {
         if (fileStatus.id === action.id) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { id, type, ...rest } = action;
+          if (action.status === "pending") {
+            return {
+              ...fileStatus,
+              status: "pending",
+              tries: fileStatus.tries + 1,
+              progress: 0,
+              result: undefined,
+              error: undefined,
+            } as FileStatus<TUploadRes, TUploadError>;
+          }
+
+          if (action.status === "success") {
+            return {
+              ...fileStatus,
+              status: "success",
+              result: action.result,
+              progress: 100,
+              error: undefined,
+            } as FileStatus<TUploadRes, TUploadError>;
+          }
+
           return {
             ...fileStatus,
-            ...rest,
-            tries:
-              action.status === "pending"
-                ? fileStatus.tries + 1
-                : fileStatus.tries,
+            status: "error",
+            error: action.error,
           } as FileStatus<TUploadRes, TUploadError>;
         }
         return fileStatus;
@@ -155,9 +191,14 @@ const getRootError = (
   return joinedErrors.charAt(0).toUpperCase() + joinedErrors.slice(1);
 };
 
+type DropFileContext = {
+  setProgress: (progress: number) => void;
+};
+
 type UseDropzoneProps<TUploadRes, TUploadError> = {
   onDropFile: (
     file: File,
+    context: DropFileContext,
   ) => Promise<
     Exclude<DropzoneResult<TUploadRes, TUploadError>, { status: "pending" }>
   >;
@@ -241,37 +282,45 @@ const useDropzone = <TUploadRes, TUploadError = string>(
   }, [fileStatuses, rootError]);
 
   const _uploadFile = useCallback(
-    async (file: File, id: string, tries = 0) => {
-      const result = await pOnDropFile(file);
+    async (file: File, id: string) => {
+      const uploadWithRetry = async (tries = 0): Promise<void> => {
+        const result = await pOnDropFile(file, {
+          setProgress: (progress) =>
+            dispatch({ type: "update-progress", id, progress }),
+        });
 
-      if (result.status === "error") {
-        if (autoRetry === true && tries < (maxRetryCount ?? Infinity)) {
-          dispatch({ type: "update-status", id, status: "pending" });
-          return _uploadFile(file, id, tries + 1);
+        if (result.status === "error") {
+          if (autoRetry === true && tries < (maxRetryCount ?? Infinity)) {
+            dispatch({ type: "update-status", id, status: "pending" });
+            await uploadWithRetry(tries + 1);
+            return;
+          }
+
+          dispatch({
+            type: "update-status",
+            id,
+            status: "error",
+            error:
+              pShapeUploadError !== undefined
+                ? pShapeUploadError(result.error)
+                : result.error,
+          });
+          if (pOnFileUploadError !== undefined) {
+            pOnFileUploadError(result.error);
+          }
+          return;
         }
-
+        if (pOnFileUploaded !== undefined) {
+          pOnFileUploaded(result.result);
+        }
         dispatch({
           type: "update-status",
           id,
-          status: "error",
-          error:
-            pShapeUploadError !== undefined
-              ? pShapeUploadError(result.error)
-              : result.error,
+          ...result,
         });
-        if (pOnFileUploadError !== undefined) {
-          pOnFileUploadError(result.error);
-        }
-        return;
-      }
-      if (pOnFileUploaded !== undefined) {
-        pOnFileUploaded(result.result);
-      }
-      dispatch({
-        type: "update-status",
-        id,
-        ...result,
-      });
+      };
+
+      await uploadWithRetry();
     },
     [
       autoRetry,
@@ -422,7 +471,7 @@ const Dropzone = <TUploadRes, TUploadError>(
 };
 Dropzone.displayName = "Dropzone";
 
-interface DropZoneAreaProps extends React.HTMLAttributes<HTMLDivElement> {}
+type DropZoneAreaProps = React.HTMLAttributes<HTMLDivElement>;
 const DropZoneArea = forwardRef<HTMLDivElement, DropZoneAreaProps>(
   ({ className, children, ...props }, forwardedRef) => {
     const context = useDropzoneContext();
@@ -435,8 +484,6 @@ const DropZoneArea = forwardRef<HTMLDivElement, DropZoneAreaProps>(
       context.getRootProps();
 
     return (
-      // A11y behavior is handled through Trigger. All of these are only relevant to drag and drop which means this should be fine?
-      // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div
         ref={(instance) => {
           // TODO: test if this actually works?
@@ -468,8 +515,7 @@ const DropZoneArea = forwardRef<HTMLDivElement, DropZoneAreaProps>(
 );
 DropZoneArea.displayName = "DropZoneArea";
 
-export interface DropzoneDescriptionProps
-  extends React.HTMLAttributes<HTMLParagraphElement> {}
+export type DropzoneDescriptionProps = React.HTMLAttributes<HTMLParagraphElement>;
 
 const DropzoneDescription = forwardRef<
   HTMLParagraphElement,
@@ -516,8 +562,7 @@ const useDropzoneFileListContext = () => {
   return useContext(DropzoneFileListContext);
 };
 
-interface DropZoneFileListProps
-  extends React.OlHTMLAttributes<HTMLOListElement> {}
+type DropZoneFileListProps = React.OlHTMLAttributes<HTMLOListElement>;
 
 const DropzoneFileList = forwardRef<HTMLOListElement, DropZoneFileListProps>(
   (props, ref) => {
@@ -592,8 +637,7 @@ const DropzoneFileListItem = forwardRef<
 });
 DropzoneFileListItem.displayName = "DropzoneFileListItem";
 
-interface DropzoneFileMessageProps
-  extends React.HTMLAttributes<HTMLParagraphElement> {}
+type DropzoneFileMessageProps = React.HTMLAttributes<HTMLParagraphElement>;
 
 const DropzoneFileMessage = forwardRef<
   HTMLParagraphElement,
@@ -626,8 +670,7 @@ const DropzoneFileMessage = forwardRef<
   );
 });
 DropzoneFileMessage.displayName = "DropzoneFileMessage";
-interface DropzoneMessageProps
-  extends React.HTMLAttributes<HTMLParagraphElement> {}
+type DropzoneMessageProps = React.HTMLAttributes<HTMLParagraphElement>;
 
 const DropzoneMessage = forwardRef<HTMLParagraphElement, DropzoneMessageProps>(
   (props, ref) => {
@@ -655,7 +698,7 @@ const DropzoneMessage = forwardRef<HTMLParagraphElement, DropzoneMessageProps>(
 );
 DropzoneMessage.displayName = "DropzoneMessage";
 
-interface DropzoneRemoveFileProps extends ButtonProps {}
+type DropzoneRemoveFileProps = ButtonProps;
 
 const DropzoneRemoveFile = forwardRef<
   HTMLButtonElement,
@@ -686,7 +729,7 @@ const DropzoneRemoveFile = forwardRef<
 });
 DropzoneRemoveFile.displayName = "DropzoneRemoveFile";
 
-interface DropzoneRetryFileProps extends ButtonProps {}
+type DropzoneRetryFileProps = ButtonProps;
 
 const DropzoneRetryFile = forwardRef<HTMLButtonElement, DropzoneRetryFileProps>(
   ({ className, ...props }, ref) => {
@@ -722,8 +765,7 @@ const DropzoneRetryFile = forwardRef<HTMLButtonElement, DropzoneRetryFileProps>(
 );
 DropzoneRetryFile.displayName = "DropzoneRetryFile";
 
-interface DropzoneTriggerProps
-  extends React.LabelHTMLAttributes<HTMLLabelElement> {}
+type DropzoneTriggerProps = React.LabelHTMLAttributes<HTMLLabelElement>;
 
 const DropzoneTrigger = forwardRef<HTMLLabelElement, DropzoneTriggerProps>(
   ({ className, children, ...props }, ref) => {

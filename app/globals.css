@@ -37,6 +37,12 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-status-pending: var(--status-pending);
+  --color-status-pending-foreground: var(--status-pending-foreground);
+  --color-status-approved: var(--status-approved);
+  --color-status-approved-foreground: var(--status-approved-foreground);
+  --color-status-denied: var(--status-denied);
+  --color-status-denied-foreground: var(--status-denied-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -79,6 +85,12 @@
   --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
   --sidebar-border: oklch(0.928 0.006 264.531);
   --sidebar-ring: oklch(0.707 0.022 261.325);
+  --status-pending: oklch(0.87 0.14 90);
+  --status-pending-foreground: oklch(0.28 0.03 91);
+  --status-approved: oklch(0.74 0.17 151);
+  --status-approved-foreground: oklch(0.2 0.03 151);
+  --status-denied: oklch(0.63 0.23 28);
+  --status-denied-foreground: oklch(0.97 0.01 28);
 }
 
 .dark {
@@ -113,6 +125,12 @@
   --sidebar-accent-foreground: oklch(0.985 0.002 247.839);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
+  --status-pending: oklch(0.78 0.15 90);
+  --status-pending-foreground: oklch(0.2 0.03 91);
+  --status-approved: oklch(0.68 0.16 151);
+  --status-approved-foreground: oklch(0.97 0.01 151);
+  --status-denied: oklch(0.7 0.2 28);
+  --status-denied-foreground: oklch(0.98 0.01 28);
 }
 
 @layer base {

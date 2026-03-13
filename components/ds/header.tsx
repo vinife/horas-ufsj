@@ -2,6 +2,8 @@
 
 import * as React from "react"
 import { Button } from "@/components/ds/button"
+import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuthStore } from "@/lib/auth-store"
 import { cn } from "@/lib/utils"
 import { useClientStore } from "@/lib/client-store"
@@ -64,68 +66,70 @@ export function Header({
     }
   }, [hydrated, authStatus, setAuthStatus, setAuthUser])
 
-const safeTabs = tabs.slice(0, 3)
+  const safeTabs = tabs
+  const selectedTab = activeTabId ?? safeTabs[0]?.id
 
-return (
-  <header
-    className={cn(
-      "w-full border-b border-border bg-background",
-      "flex items-center justify-between gap-4 px-4 py-3",
+  return (
+    <header
+      className={cn(
+        "relative w-full border-b border-border bg-background",
+        "flex items-center justify-between gap-4 px-4 py-3",
         className,
-    )}
-  >
-    <div className="flex items-center gap-3">
-    {logo ?? (
-      <span className="text-lg font-semibold text-foreground">
-    Horas UFSJ
-  </span>
-)}
-      </div >
+      )}
+    >
+      <div className="flex items-center gap-3">
+        {logo ?? (
+          <span className="text-lg font-semibold text-foreground">
+            Horas UFSJ
+          </span>
+        )}
+      </div>
 
-  <div className="flex flex-1 items-center justify-center gap-2">
-{
-  safeTabs.map((tab) => {
-    const isActive = tab.id === activeTabId
-    return (
-      <Button
-        key={tab.id}
-        intent={isActive ?"primary" : "secondary"}
-    className = {
-      cn(
-        "min-w-28",
-        isActive && "pointer-events-none",
-              )
-}
-onClick = {() => onTabChange?.(tab.id)}
-disabled = { tab.disabled }
-  >
-  { tab.label }
-            </Button >
-          )
-        })}
-      </div >
+      <div className="absolute left-1/2 -translate-x-1/2">
+        {selectedTab ? (
+          <Tabs
+            value={selectedTab}
+            onValueChange={(value) => onTabChange?.(value)}
+          >
+            <TabsList >
+              {safeTabs.map((tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  disabled={tab.disabled}
+                  className="min-w-28"
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        ) : null}
+      </div>
 
-  <div className="flex items-center gap-2">
-    {authStatus === "authed" && (
-      <span className="hidden text-sm text-muted-foreground md:inline">
-        {authUser?.name ?? authUser?.email}
-      </span>
-    )}
-    < Button
-intent ="secondary"
-className ="min-w-28"
-onClick = { toggleTheme }
-  >
-  { hydrated && theme === "dark" ? "Modo claro" : "Modo escuro"}
-        </Button >
-  <Button
-    intent="danger"
-className ="min-w-24"
-onClick = { onLogout }
-  >
-  Sair
-        </Button >
-      </div >
-    </header >
+      <div className="flex items-center gap-2">
+        {authStatus === "authed" && (
+          <span className="hidden text-sm text-muted-foreground md:inline">
+            {authUser?.name ?? authUser?.email}
+          </span>
+        )}
+        <div className="px-4">
+          <Switch
+            checked={hydrated ? theme === "dark" : false}
+            onCheckedChange={() => toggleTheme()}
+            aria-label="Alternar tema"
+            disabled={!hydrated}
+          />
+        </div>
+
+        <Button
+          intent="danger"
+          className="min-w-24 "
+          onClick={onLogout}
+        >
+          Sair
+        </Button>
+      </div>
+    </header>
   )
 }

@@ -28,6 +28,11 @@ type UploadInputProps = {
   maxSize?: number
   maxFiles?: number
   onChange?: (files: File[]) => void
+  uploadFile?: (
+    file: File,
+    context: { setProgress: (progress: number) => void },
+  ) => Promise<{ status: "success" } | { status: "error"; error: string }>
+  children?: React.ReactNode
 }
 
 export function UploadInput({
@@ -39,9 +44,21 @@ export function UploadInput({
   maxSize,
   maxFiles,
   onChange,
+  uploadFile,
 }: UploadInputProps) {
   const dropzone = useDropzone<File, string>({
-    onDropFile: async (file) => ({ status: "success", result: file }),
+    onDropFile: async (file, context) => {
+      if (!uploadFile) {
+        return { status: "success", result: file }
+      }
+
+      const result = await uploadFile(file, context)
+      if (result.status === "error") {
+        return { status: "error", error: result.error }
+      }
+
+      return { status: "success", result: file }
+    },
     validation: {
       accept,
       maxSize,
@@ -88,7 +105,20 @@ export function UploadInput({
                   </div>
                   <div className="flex items-center gap-2">
                     {file.status === "pending" && (
-                      <InfiniteProgress status="pending" className="w-20" />
+                      <div className="w-28 space-y-1">
+                        <div className="h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary transition-[width] duration-150"
+                            style={{ width: `${Math.max(file.progress, 2)}%` }}
+                          />
+                        </div>
+                        <div className="text-[10px] text-muted-foreground text-right">
+                          {Math.round(file.progress)}%
+                        </div>
+                      </div>
+                    )}
+                    {file.status === "success" && (
+                      <InfiniteProgress status="success" className="w-20" />
                     )}
                     {file.status === "error" && (
                       <DropzoneRetryFile variant="ghost" size="icon">
