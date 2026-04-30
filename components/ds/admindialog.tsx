@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { ExternalLink } from "lucide-react"
+import { notify } from "@/components/ds/notification"
 import { Badge } from "@/components/ui/badge"
 import {
   Accordion,
@@ -95,7 +96,6 @@ export function AdminDialog({
   const [reviewStateByFileId, setReviewStateByFileId] = React.useState<
     Record<string, ReviewFormState>
   >({})
-  const [errorByFileId, setErrorByFileId] = React.useState<Record<string, string>>({})
   const [savingByFileId, setSavingByFileId] = React.useState<Record<string, boolean>>({})
 
   React.useEffect(() => {
@@ -112,7 +112,6 @@ export function AdminDialog({
     }
 
     setReviewStateByFileId(nextState)
-    setErrorByFileId({})
     setSavingByFileId({})
   }, [open, student])
 
@@ -129,7 +128,6 @@ export function AdminDialog({
           [fileId]: updater(current),
         }
       })
-      setErrorByFileId((prev) => ({ ...prev, [fileId]: "" }))
     },
     [],
   )
@@ -144,18 +142,18 @@ export function AdminDialog({
         state.valuedHours < 0 ||
         state.valuedHours > 100
       ) {
-        setErrorByFileId((prev) => ({
-          ...prev,
-          [file.id]: "Informe horas validadas entre 0 e 100.",
-        }))
+        notify.error(
+          "Horas inválidas",
+          "Informe horas validadas entre 0 e 100.",
+        )
         return
       }
 
       if (state.decision === "deny" && !state.commentary.trim()) {
-        setErrorByFileId((prev) => ({
-          ...prev,
-          [file.id]: "A justificativa e obrigatoria quando o arquivo e negado.",
-        }))
+        notify.warning(
+          "Justificativa obrigatória",
+          "Adicione uma justificativa quando o arquivo for negado.",
+        )
         return
       }
 
@@ -169,10 +167,37 @@ export function AdminDialog({
             commentary: state.commentary.trim() || undefined,
           })
         } else if (state.decision === "allow") {
-          await onApprove?.(file.id)
+          if (!onApprove) {
+            notify.info(
+              "Ação indisponível",
+              "A aprovação ainda não está configurada para este fluxo.",
+            )
+            return
+          }
+          await onApprove(file.id)
         } else {
-          await onReject?.(file.id)
+          if (!onReject) {
+            notify.info(
+              "Ação indisponível",
+              "A rejeição ainda não está configurada para este fluxo.",
+            )
+            return
+          }
+          await onReject(file.id)
         }
+        notify.success(
+          state.decision === "allow"
+            ? "Arquivo aprovado"
+            : "Arquivo rejeitado",
+          `${file.title} foi avaliado com sucesso.`,
+        )
+      } catch (error) {
+        notify.error(
+          "Falha ao salvar avaliação",
+          error instanceof Error
+            ? error.message
+            : "Não foi possível salvar a avaliação.",
+        )
       } finally {
         setSavingByFileId((prev) => ({ ...prev, [file.id]: false }))
       }
@@ -207,19 +232,20 @@ export function AdminDialog({
               }
               const isDenied = state.decision === "deny"
               const isSaving = savingByFileId[file.id] === true
-              const error = errorByFileId[file.id]
 
               return (
                 <AccordionItem key={file.id} value={file.id}>
                   <AccordionTrigger>
-                    <div className="flex w-full items-center gap-3">
-                      <span className="max-w-[55%] truncate font-medium">
+                    <div className="flex w-full flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                      <span className="truncate font-medium">
                         {file.title}
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(file.createdAt)}
-                      </span>
-                      <Badge variant={status.variant}>{status.label}</Badge>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(file.createdAt)}
+                        </span>
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                      </div>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
@@ -234,8 +260,8 @@ export function AdminDialog({
                         <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                       </a>
 
-                      <div className="flex flex-col gap-4 md:flex-row md:items-end">
-                        <div className="grid gap-2 md:min-w-[260px]">
+                      <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-end sm:flex-wrap lg:flex-nowrap">
+                        <div className="grid gap-2 flex-1 sm:flex-initial">
                           <span className="text-sm font-medium">Decisao</span>
                           <RadioGroup
                             value={state.decision}
@@ -260,7 +286,7 @@ export function AdminDialog({
                           </RadioGroup>
                         </div>
 
-                        <div className="grid gap-2 md:w-[130px]">
+                        <div className="grid gap-2 flex-1 sm:flex-initial sm:min-w-[130px]">
                           <label className="text-sm font-medium">Horas validadas</label>
                           <Select
                             value={String(state.valuedHours)}
@@ -283,19 +309,6 @@ export function AdminDialog({
                               ))}
                             </SelectContent>
                           </Select>
-                        </div>
-
-
-
-                        <div className="md:ml-auto">
-                          <Button
-                            size="sm"
-                            intent={isDenied ? "danger" : "primary"}
-                            disabled={isSaving}
-                            onClick={() => handleSubmitReview(file)}
-                          >
-                            {isSaving ? "Salvando..." : "Salvar avaliacao"}
-                          </Button>
                         </div>
                       </div>
 
@@ -329,9 +342,17 @@ export function AdminDialog({
                         </div>
                       </div>
 
-                      {error ? (
-                        <p className="text-sm text-destructive">{error}</p>
-                      ) : null}
+                      <div className="w-full">
+                        <Button
+                          size="sm"
+                          intent={isDenied ? "danger" : "primary"}
+                          disabled={isSaving}
+                          onClick={() => handleSubmitReview(file)}
+                          className="w-full sm:w-auto"
+                        >
+                          {isSaving ? "Salvando..." : "Salvar avaliacao"}
+                        </Button>
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>

@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs"
 import { Search } from "lucide-react"
 import { Card } from "@/components/ds/card"
+import { notify } from "@/components/ds/notification"
 import { PaginationControls, useAutoPageSize } from "@/components/ds/table-pagination"
 import { UnapprovedUserRow } from "@/components/ds/unapproved-user-row"
 import { ApprovedUserRow } from "@/components/ds/approved-user-row"
@@ -74,13 +75,13 @@ export function UsersCard({ title, className }: UsersCardProps) {
     parseAsInteger.withDefault(1),
   )
   const [draftSearchValue, setDraftSearchValue] = React.useState(searchValue)
-  const [actionError, setActionError] = React.useState("")
   const [actionInFlightUserId, setActionInFlightUserId] = React.useState<
     string | null
   >(null)
   const [activeActionRowId, setActiveActionRowId] = React.useState<string | null>(
     null,
   )
+  const hasShownLoadErrorRef = React.useRef(false)
 
   React.useEffect(() => {
     setDraftSearchValue(searchValue)
@@ -117,12 +118,25 @@ export function UsersCard({ title, className }: UsersCardProps) {
     dependencies: [users.length, isLoading, searchValue, currentPage, canManage],
   })
 
+  React.useEffect(() => {
+    if (!isError) {
+      hasShownLoadErrorRef.current = false
+      return
+    }
+
+    if (hasShownLoadErrorRef.current) return
+    notify.error(
+      "Falha ao carregar usuários",
+      "Não foi possível carregar a lista de usuários.",
+    )
+    hasShownLoadErrorRef.current = true
+  }, [isError])
+
   const handleAccessStatusChange = async (
     userId: string,
     status: ManagedAccessStatus,
     role: ManagedRole,
   ) => {
-    setActionError("")
     setActionInFlightUserId(userId)
     try {
       const res = await fetch("/api/admin/users", {
@@ -142,8 +156,15 @@ export function UsersCard({ title, className }: UsersCardProps) {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] })
+      notify.success(
+        status === "APPROVED" ? "Usuário aprovado" : "Usuário rejeitado",
+        status === "APPROVED"
+          ? "A solicitação foi atualizada com sucesso."
+          : "A solicitação foi negada com sucesso.",
+      )
     } catch (error) {
-      setActionError(
+      notify.error(
+        "Falha ao atualizar solicitação",
         error instanceof Error
           ? error.message
           : "Não foi possível atualizar a solicitação.",
@@ -183,16 +204,12 @@ export function UsersCard({ title, className }: UsersCardProps) {
           </button>
         </form>
 
-        {actionError ? (
-          <p className="text-sm text-destructive">{actionError}</p>
-        ) : null}
-
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Carregando usuários...</div>
         ) : null}
         {isError ? (
-          <div className="text-sm text-destructive">
-            Não foi possível carregar a lista.
+          <div className="text-sm text-muted-foreground">
+            Tente novamente em instantes.
           </div>
         ) : null}
 
@@ -207,7 +224,7 @@ export function UsersCard({ title, className }: UsersCardProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!isLoading && users.length === 0 ? (
+              {!isLoading && !isError && users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-muted-foreground">
                     Nenhum usuário encontrado.
@@ -235,7 +252,7 @@ export function UsersCard({ title, className }: UsersCardProps) {
                         setActiveActionRowId((prev) => (prev === user.id ? null : user.id))
                       }}
                     >
-                      <TableCell className="max-w-60">
+                      <TableCell className="max-w-60 ">
                         <div className="flex items-center gap-2">
                           <span className="truncate font-medium">
                             {user.name ?? "-"}

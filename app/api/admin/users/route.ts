@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { db } from "@/lib/db";
-import { getSession } from "@/lib/session";
 import {
   isInstitutionalEmail,
   isMasterAdminEmail,
   normalizeEmail,
 } from "@/lib/auth/access-control";
+import { db } from "@/lib/db";
+import { getSession } from "@/lib/session";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 type ManagedRole = "STUDENT" | "ADMIN";
 type ManagedAccessStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -32,12 +32,16 @@ function parseManagedAccessStatus(
 async function getAdminContext(request: NextRequest) {
   const sessionId = request.cookies.get("session")?.value;
   if (!sessionId) {
-    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return {
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
 
   const session = await getSession(sessionId);
   if (!session || session.role !== "admin") {
-    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+    return {
+      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
   }
 
   const canManage =
@@ -126,9 +130,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => null)) as
-    | { email?: string; role?: string; name?: string }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    email?: string;
+    role?: string;
+    name?: string;
+  } | null;
   if (!body?.email) {
     return NextResponse.json({ error: "Email obrigatório" }, { status: 400 });
   }
@@ -156,7 +162,6 @@ export async function POST(request: NextRequest) {
       role,
       accessStatus: "APPROVED",
       reviewedAt: new Date(),
-      reviewNote: null,
       ...(cleanName ? { name: cleanName } : {}),
     },
     create: {
@@ -164,7 +169,6 @@ export async function POST(request: NextRequest) {
       role,
       accessStatus: "APPROVED",
       reviewedAt: new Date(),
-      reviewNote: null,
       ...(cleanName ? { name: cleanName } : {}),
     },
     select: {
@@ -195,14 +199,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => null)) as
-    | {
-        userId?: string;
-        status?: string;
-        role?: string;
-        reason?: string;
-      }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    userId?: string;
+    status?: string;
+    role?: string;
+    reason?: string;
+  } | null;
 
   if (!body?.userId) {
     return NextResponse.json({ error: "userId obrigatório" }, { status: 400 });
@@ -219,7 +221,10 @@ export async function PATCH(request: NextRequest) {
   });
 
   if (!existingUser) {
-    return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Usuário não encontrado" },
+      { status: 404 },
+    );
   }
 
   if (isMasterAdminEmail(existingUser.email) && status !== "APPROVED") {
@@ -235,8 +240,6 @@ export async function PATCH(request: NextRequest) {
     data: {
       accessStatus: status,
       reviewedAt: new Date(),
-      reviewNote:
-        status === "REJECTED" ? body.reason?.trim() || "Solicitação negada." : null,
       ...(status === "APPROVED"
         ? { role: isMasterAdminEmail(existingUser.email) ? "ADMIN" : role }
         : {}),

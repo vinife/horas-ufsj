@@ -3,6 +3,7 @@ import {
   Card as UICard,
   CardHeader,
   CardTitle,
+  CardDescription,
   CardContent,
   CardFooter,
 } from "@/components/ui/card"
@@ -38,5 +39,6 @@ export function Card({
 // Reexporta subcomponentes para manter API
 Card.Header = CardHeader
 Card.Title = CardTitle
+Card.Description = CardDescription
 Card.Content = CardContent
 Card.Footer = CardFooter

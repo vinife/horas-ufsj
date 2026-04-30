@@ -6,6 +6,7 @@ import { parseAsInteger, parseAsString, useQueryState } from "nuqs"
 import { Search } from "lucide-react"
 import { Card } from "@/components/ds/card"
 import { AdminDialog, type StudentReview } from "@/components/ds/admindialog"
+import { notify } from "@/components/ds/notification"
 import { PaginationControls, useAutoPageSize } from "@/components/ds/table-pagination"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -111,7 +112,7 @@ export function AdminCard({
   const queryClient = useQueryClient()
   const [selectedStudent, setSelectedStudent] = React.useState<StudentReviewRow | null>(null)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-  const tableViewportRef = React.useRef<HTMLDivElement | null>(null)
+  const tableViewportRef = React.useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
   const [searchValue, setSearchValue] = useQueryState(
     "q",
     parseAsString.withDefault(""),
@@ -121,6 +122,7 @@ export function AdminCard({
     parseAsInteger.withDefault(1),
   )
   const [draftSearchValue, setDraftSearchValue] = React.useState(searchValue)
+  const hasShownLoadErrorRef = React.useRef(false)
 
   React.useEffect(() => {
     setDraftSearchValue(searchValue)
@@ -191,6 +193,20 @@ export function AdminCard({
   const meta = fetchedData?.meta
   const totalPages = Math.max(1, meta?.totalPages ?? 1)
 
+  React.useEffect(() => {
+    if (!isError) {
+      hasShownLoadErrorRef.current = false
+      return
+    }
+
+    if (hasShownLoadErrorRef.current) return
+    notify.error(
+      "Falha ao carregar comprovantes",
+      "Não foi possível carregar os arquivos pendentes.",
+    )
+    hasShownLoadErrorRef.current = true
+  }, [isError])
+
   const handleApprove = async (id: string) => {
     if (!onApprove) return
     await onApprove(id)
@@ -211,7 +227,7 @@ export function AdminCard({
   return (
     <Card className={cn("flex h-full min-h-0 flex-col", className)}>
       <Card.Header className="justify-center">
-        <Card.Title className="text-2xl font-bold">{title}</Card.Title>
+        <Card.Title className="text-xl sm:text-2xl text-center font-bold">{title}</Card.Title>
       </Card.Header>
 
       <Card.Content className="flex min-h-0 flex-1 flex-col gap-5">
@@ -242,8 +258,8 @@ export function AdminCard({
           <div className="text-sm text-muted-foreground">Carregando alunos...</div>
         )}
         {isError && (
-          <div className="text-sm text-destructive">
-            Não foi possível carregar os arquivos.
+          <div className="text-sm text-muted-foreground">
+            Tente novamente em instantes.
           </div>
         )}
 
@@ -252,12 +268,12 @@ export function AdminCard({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[45%]">Aluno</TableHead>
-                <TableHead className="w-[40%] text-left">Email</TableHead>
+                <TableHead className="hidden sm:table-cell w-[40%] text-left">Email</TableHead>
                 <TableHead className="text-right">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!isLoading && students.length === 0 ? (
+              {!isLoading && !isError && students.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} className="text-muted-foreground">
                     Nenhum aluno com arquivos pendentes.
@@ -282,7 +298,7 @@ export function AdminCard({
                       <TableCell className="w-[45%] truncate font-medium">
                         {student.name ?? "-"}
                       </TableCell>
-                      <TableCell className="w-[40%] truncate text-left">
+                      <TableCell className="hidden sm:table-cell w-[40%] truncate text-left">
                         {student.email}
                       </TableCell>
                       <TableCell className="text-right">

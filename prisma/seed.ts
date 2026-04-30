@@ -21,7 +21,7 @@ const CERTIFICATE_TITLES = [
 ];
 
 const CERTIFICATE_TYPES = ["COMPLEMENTAR", "EXTENSÃO"] as const;
-const STATUS_POOL = ["PENDENTE", "APROVADO", "REJEITADO"] as const;
+const STATUS_POOL = ["PENDING", "APPROVED", "REJECTED"] as const;
 const STATUS_WEIGHTS = [55, 35, 10];
 
 function randomFrom<T>(items: readonly T[]) {
@@ -37,7 +37,7 @@ function weightedStatus() {
     if (roll <= acc) return STATUS_POOL[i];
   }
 
-  return "PENDENTE";
+  return "PENDING";
 }
 
 function randomDateInLastMonths(months = 18) {
@@ -99,7 +99,11 @@ async function createStudents(total: number) {
       select: { id: true, email: true, name: true },
     });
 
-    students.push(user);
+    students.push({
+      id: user.id,
+      email: user.email,
+      name: user.name ?? name,
+    });
   }
 
   return students;
@@ -111,7 +115,6 @@ async function createCertificates(
 ) {
   const rows: {
     title: string;
-    description: string;
     hours: number;
     certificatetype: (typeof CERTIFICATE_TYPES)[number];
     fileUrl: string;
@@ -136,14 +139,13 @@ async function createCertificates(
 
       rows.push({
         title,
-        description: `Comprovante ${i} de ${student.name} para testes de paginacao e filtros.`,
         hours: 10 + Math.floor(Math.random() * 71),
         certificatetype: type,
         fileUrl: `https://drive.google.com/file/d/${baseSlug}/view`,
         fileId: baseSlug,
         status,
         feedback:
-          status === "REJEITADO"
+          status === "REJECTED"
             ? "Documento ilegivel ou informacoes incompletas."
             : null,
         userId: student.id,

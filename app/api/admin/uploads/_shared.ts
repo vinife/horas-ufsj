@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import type { Prisma } from "@prisma/client";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 type UploadType = "complementar" | "extensao";
 
@@ -38,7 +38,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
       certificados: {
         some: {
           certificatetype: certificateType,
-          status: "PENDENTE",
+          status: "PENDING",
         },
       },
     };
@@ -51,7 +51,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
           certificados: {
             some: {
               certificatetype: certificateType,
-              status: "PENDENTE",
+              status: "PENDING",
               title: { contains: search, mode: "insensitive" },
             },
           },
@@ -72,7 +72,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
           certificados: {
             where: {
               certificatetype: certificateType,
-              status: "PENDENTE",
+              status: "PENDING",
             },
             orderBy: { createdAt: "desc" },
             select: {
@@ -95,7 +95,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
           id: student.id,
           name: student.name,
           email: student.email,
-          status: "PENDENTE",
+          status: "PENDING",
           files: student.certificados.map((file) => ({
             id: file.id,
             title: file.title,

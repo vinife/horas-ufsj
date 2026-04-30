@@ -3,7 +3,7 @@ import { AuthStrategy, UserProfile } from "../types";
 import { XMLParser } from "fast-xml-parser";
 
 export class CasStrategy implements AuthStrategy {
-  private serviceUrl = `${process.env.NEXTAUTH_URL}/api/auth/institucional/callback`;
+  private serviceUrl = `${process.env.NEXTAUTH_URL}/api/auth/callback/institucional`;
   private casBaseUrl = "https://balancer.ufsj.edu.br/sso-server";
 
   async getLoginUrl(): Promise<{
@@ -25,11 +25,27 @@ export class CasStrategy implements AuthStrategy {
 
     const res = await fetch(validateUrl);
     const text = await res.text();
+    logCasDebug("Resposta bruta do serviceValidate", {
+      ok: res.ok,
+      status: res.status,
+      serviceUrl: this.serviceUrl,
+      ticket: maskTicket(ticket),
+      validateUrl: `${this.casBaseUrl}/serviceValidate`,
+      body: text,
+    });
+
     const parser = new XMLParser();
     const json = parser.parse(text);
+    logCasDebug("Resposta parseada do serviceValidate", json);
 
     const success = json["cas:serviceResponse"]?.["cas:authenticationSuccess"];
-    if (!success) throw new Error("Falha na validação CAS");
+    if (!success) {
+      logCasDebug(
+        "Falha de autenticacao CAS",
+        json["cas:serviceResponse"]?.["cas:authenticationFailure"] ?? json,
+      );
+      throw new Error("Falha na validação CAS");
+    }
 
     return {
       id: success["cas:user"],
@@ -39,4 +55,18 @@ export class CasStrategy implements AuthStrategy {
       role: "student",
     };
   }
+}
+
+function isCasDebugEnabled() {
+  return process.env.DEBUG_CAS_RESPONSE === "true";
+}
+
+function logCasDebug(message: string, payload: unknown) {
+  if (!isCasDebugEnabled()) return;
+  console.log(`[CAS DEBUG] ${message}`, payload);
+}
+
+function maskTicket(ticket: string) {
+  if (ticket.length <= 12) return ticket;
+  return `${ticket.slice(0, 8)}...${ticket.slice(-4)}`;
 }

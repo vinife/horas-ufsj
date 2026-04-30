@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { FileText, RefreshCw, UploadCloud, X } from "lucide-react"
+import { notify } from "@/components/ds/notification"
 import type { Accept } from "react-dropzone"
 import {
   Dropzone,
@@ -14,7 +15,6 @@ import {
   DropzoneRemoveFile,
   DropzoneRetryFile,
   DropzoneTrigger,
-  InfiniteProgress,
   useDropzone,
 } from "@/components/ui/dropzone"
 import { cn } from "@/lib/utils"
@@ -35,6 +35,10 @@ type UploadInputProps = {
   children?: React.ReactNode
 }
 
+function eventHasFiles(event: DragEvent) {
+  return Array.from(event.dataTransfer?.types ?? []).includes("Files")
+}
+
 export function UploadInput({
   className,
   label = "Arraste os arquivos aqui",
@@ -46,18 +50,32 @@ export function UploadInput({
   onChange,
   uploadFile,
 }: UploadInputProps) {
+  const lastRootErrorRef = React.useRef<string | undefined>(undefined)
+  const removeSuccessTimeoutsRef = React.useRef<Map<string, number>>(new Map())
+  const windowDragDepthRef = React.useRef(0)
+  const [isWindowDragActive, setIsWindowDragActive] = React.useState(false)
+  const [overlayTopOffset, setOverlayTopOffset] = React.useState(0)
+
   const dropzone = useDropzone<File, string>({
     onDropFile: async (file, context) => {
       if (!uploadFile) {
+        notify.success("Arquivo pronto", `${file.name} foi adicionado com sucesso.`)
         return { status: "success", result: file }
       }
 
       const result = await uploadFile(file, context)
       if (result.status === "error") {
+        notify.error(`Falha ao enviar ${file.name}`, result.error)
         return { status: "error", error: result.error }
       }
 
+      notify.success("Upload concluído", `${file.name} foi enviado com sucesso.`)
       return { status: "success", result: file }
+    },
+    onRootError: (error) => {
+      if (!error || lastRootErrorRef.current === error) return
+      notify.error("Não foi possível adicionar o arquivo.", error)
+      lastRootErrorRef.current = error
     },
     validation: {
       accept,
@@ -65,19 +83,131 @@ export function UploadInput({
       maxFiles: multiple ? maxFiles : 1,
     },
   })
+  const { fileStatuses, onRemoveFile } = dropzone
 
   const files = React.useMemo(
-    () => dropzone.fileStatuses.map((status) => status.file),
-    [dropzone.fileStatuses],
+    () => fileStatuses.map((status) => status.file),
+    [fileStatuses],
+  )
+  const visibleFileStatuses = React.useMemo(
+    () => fileStatuses.filter((status) => status.status !== "success"),
+    [fileStatuses],
   )
 
   React.useEffect(() => {
     onChange?.(files)
   }, [files, onChange])
 
+  React.useEffect(() => {
+    const activeSuccessIds = new Set(
+      fileStatuses.filter((status) => status.status === "success").map((status) => status.id),
+    )
+
+    fileStatuses.forEach((status) => {
+      if (status.status !== "success") return
+      if (removeSuccessTimeoutsRef.current.has(status.id)) return
+
+      const timeoutId = window.setTimeout(() => {
+        removeSuccessTimeoutsRef.current.delete(status.id)
+        void onRemoveFile(status.id)
+      }, 150)
+
+      removeSuccessTimeoutsRef.current.set(status.id, timeoutId)
+    })
+
+    removeSuccessTimeoutsRef.current.forEach((timeoutId, id) => {
+      if (activeSuccessIds.has(id)) return
+      window.clearTimeout(timeoutId)
+      removeSuccessTimeoutsRef.current.delete(id)
+    })
+  }, [fileStatuses, onRemoveFile])
+
+  React.useEffect(() => {
+    const timeoutMap = removeSuccessTimeoutsRef.current
+    return () => {
+      timeoutMap.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId)
+      })
+      timeoutMap.clear()
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const syncOverlayTopOffset = () => {
+      const header = document.querySelector("header")
+      if (!(header instanceof HTMLElement)) {
+        setOverlayTopOffset(0)
+        return
+      }
+
+      setOverlayTopOffset(Math.max(header.getBoundingClientRect().bottom, 0))
+    }
+
+    const resetWindowDrag = () => {
+      windowDragDepthRef.current = 0
+      setIsWindowDragActive(false)
+    }
+
+    const handleDragEnter = (event: DragEvent) => {
+      if (!eventHasFiles(event)) return
+      syncOverlayTopOffset()
+      windowDragDepthRef.current += 1
+      setIsWindowDragActive(true)
+    }
+
+    const handleDragOver = (event: DragEvent) => {
+      if (!eventHasFiles(event)) return
+      event.preventDefault()
+      syncOverlayTopOffset()
+      setIsWindowDragActive(true)
+    }
+
+    const handleDragLeave = (event: DragEvent) => {
+      if (!eventHasFiles(event)) return
+      windowDragDepthRef.current = Math.max(windowDragDepthRef.current - 1, 0)
+      if (windowDragDepthRef.current === 0) {
+        setIsWindowDragActive(false)
+      }
+    }
+
+    const handleDrop = (event: DragEvent) => {
+      if (!eventHasFiles(event)) return
+      event.preventDefault()
+      resetWindowDrag()
+    }
+
+    window.addEventListener("dragenter", handleDragEnter)
+    window.addEventListener("dragover", handleDragOver)
+    window.addEventListener("dragleave", handleDragLeave)
+    window.addEventListener("drop", handleDrop)
+    window.addEventListener("resize", syncOverlayTopOffset)
+    window.addEventListener("scroll", syncOverlayTopOffset, { passive: true })
+
+    syncOverlayTopOffset()
+
+    return () => {
+      window.removeEventListener("dragenter", handleDragEnter)
+      window.removeEventListener("dragover", handleDragOver)
+      window.removeEventListener("dragleave", handleDragLeave)
+      window.removeEventListener("drop", handleDrop)
+      window.removeEventListener("resize", syncOverlayTopOffset)
+      window.removeEventListener("scroll", syncOverlayTopOffset)
+    }
+  }, [])
+
+  const isExpandedDropzone = isWindowDragActive || dropzone.isDragActive
+
   return (
     <Dropzone {...dropzone}>
       <div className={cn("space-y-3", className)}>
+        {isExpandedDropzone && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-40 animate-in fade-in-0 duration-200 bg-background/70 backdrop-blur-[2px]"
+            style={{ top: `${overlayTopOffset}px` }}
+          />
+        )}
+
         <DropZoneArea className="flex-col px-6 py-8">
           <div className="flex flex-col items-center gap-2 text-center">
             <div className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background text-foreground shadow-xs">
@@ -90,9 +220,29 @@ export function UploadInput({
           </div>
         </DropZoneArea>
 
-        {dropzone.fileStatuses.length > 0 && (
+        {isExpandedDropzone && (
+          <DropZoneArea
+            data-state="open"
+            style={{ top: `${overlayTopOffset + 16}px` }}
+            className="fixed inset-x-4 bottom-4 z-50 flex-col rounded-2xl border-2 border-dashed border-primary bg-background/95 px-6 py-8 shadow-2xl backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2"
+          >
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="flex h-14 w-14 scale-110 items-center justify-center rounded-full border border-primary/25 bg-primary/8 text-foreground shadow-xs animate-pulse">
+                <UploadCloud className="h-6 w-6 text-primary" />
+              </div>
+              <div className="text-base font-semibold leading-none">
+                Solte o arquivo para enviar
+              </div>
+              <DropzoneDescription className="max-w-sm text-sm">
+                A area de upload foi expandida apenas pelo corpo da pagina.
+              </DropzoneDescription>
+            </div>
+          </DropZoneArea>
+        )}
+
+        {visibleFileStatuses.length > 0 && (
           <DropzoneFileList>
-            {dropzone.fileStatuses.map((file) => (
+            {visibleFileStatuses.map((file) => (
               <DropzoneFileListItem
                 key={file.id}
                 file={file}
@@ -116,9 +266,6 @@ export function UploadInput({
                           {Math.round(file.progress)}%
                         </div>
                       </div>
-                    )}
-                    {file.status === "success" && (
-                      <InfiniteProgress status="success" className="w-20" />
                     )}
                     {file.status === "error" && (
                       <DropzoneRetryFile variant="ghost" size="icon">

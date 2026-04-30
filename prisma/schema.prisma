@@ -23,16 +23,11 @@ enum UserRole {
   ADMIN
 }
 
-enum AccessStatus {
+
+enum Status {
   PENDING
   APPROVED
   REJECTED
-}
-
-enum Status {
-  PENDENTE
-  APROVADO
-  REJEITADO
 }
 
 enum CertificateType {
@@ -45,10 +40,9 @@ model User {
   name          String?
   email         String    @unique
   image         String?
-  role          UserRole  @default(STUDENT) // Define quem é quem
-  accessStatus  AccessStatus @default(PENDING)
-  reviewedAt    DateTime?
-  reviewNote    String?
+  role          UserRole 
+  accessStatus  Status @default(PENDING)
+  reviewedAt    DateTime?   
   createdAt     DateTime  @default(now())
 
   // Relacionamento: Um aluno tem vários certificados
@@ -58,15 +52,14 @@ model User {
 model Certificate {
   id            String   @id @default(cuid())
   title         String   // Ex: "Curso de Python"
-  description   String?
-  hours         Int      // Quantidade de horas solicitadas
+  hours         Int?      // Quantidade de horas solicitadas
   certificatetype          CertificateType     @default(COMPLEMENTAR)
 
   // Dados do Google Drive
   fileUrl       String   // O link para ver o arquivo
   fileId        String   // O ID do Google Drive (para deletar depois se precisar)
 
-  status        Status   @default(PENDENTE)
+  status        Status   @default(PENDING)
   feedback      String?  // Motivo do indeferimento (escrito pelo admin)
 
   createdAt     DateTime @default(now())

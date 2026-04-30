@@ -2,8 +2,10 @@
 
 import * as React from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Trash2 } from "lucide-react"
 import { Card } from "@/components/ds/card"
 import { Button } from "@/components/ds/button"
+import { notify } from "@/components/ds/notification"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -29,6 +31,7 @@ export type UploadedFile = {
 
 type UploadCardProps = {
   title?: string
+  subtitle?: string
   endpoint?: string
   className?: string
   files?: UploadedFile[]
@@ -49,6 +52,19 @@ async function fetchFiles(endpoint: string): Promise<UploadedFile[]> {
   return data.files
 }
 
+async function deleteFile(endpoint: string, id: string) {
+  const params = new URLSearchParams({ id })
+  const res = await fetch(`${endpoint}?${params.toString()}`, {
+    method: "DELETE",
+  })
+
+  const data = (await res.json().catch(() => null)) as { error?: string } | null
+
+  if (!res.ok) {
+    throw new Error(data?.error ?? "Não foi possível excluir o arquivo.")
+  }
+}
+
 function formatStatus(status: FileStatus) {
   switch (status) {
     case "APROVADO":
@@ -61,7 +77,8 @@ function formatStatus(status: FileStatus) {
 }
 
 export function UploadCard({
-  title = "Enviar comprovantes",
+  title = "Horas",
+  subtitle = "Envie seus arquivos em .pdf, .jpeg ou .png para que possam ser avaliados pela coordenação.",
   endpoint = "/api/student/uploads",
   className,
   files: providedFiles,
@@ -69,10 +86,11 @@ export function UploadCard({
   onDelete,
 }: UploadCardProps) {
   const queryClient = useQueryClient()
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+  const hasShownLoadErrorRef = React.useRef(false)
   const queryKey = React.useMemo(() => ["uploads", endpoint], [endpoint])
   const {
     data: fetchedFiles,
-    isLoading,
     isError,
   } = useQuery({
     queryKey,
@@ -81,6 +99,20 @@ export function UploadCard({
   })
 
   const files = providedFiles ?? fetchedFiles ?? []
+
+  React.useEffect(() => {
+    if (!isError) {
+      hasShownLoadErrorRef.current = false
+      return
+    }
+
+    if (hasShownLoadErrorRef.current) return
+    notify.error(
+      "Falha ao carregar arquivos",
+      "Não foi possível carregar os arquivos enviados.",
+    )
+    hasShownLoadErrorRef.current = true
+  }, [isError])
 
   const uploadSingleFile = React.useCallback(
     async (file: File, context: UploadProgressContext) => {
@@ -135,15 +167,34 @@ export function UploadCard({
   )
 
   const handleDelete = async (id: string) => {
-    if (!onDelete) return
-    await onDelete(id)
-    await queryClient.invalidateQueries({ queryKey })
+    try {
+      setDeletingId(id)
+      if (onDelete) {
+        await onDelete(id)
+      } else {
+        await deleteFile(endpoint, id)
+      }
+      await queryClient.invalidateQueries({ queryKey })
+      notify.success("Arquivo excluído", "O arquivo foi removido com sucesso.")
+    } catch (error) {
+      notify.error(
+        "Falha ao excluir arquivo",
+        error instanceof Error ? error.message : "Não foi possível excluir o arquivo.",
+      )
+    } finally {
+      setDeletingId((currentId) => (currentId === id ? null : currentId))
+    }
   }
 
   return (
-    <Card className={cn("space-y-6", className)}>
-      <Card.Header className="space-y-1">
-        <Card.Title>{title}</Card.Title>
+    <Card className={cn("mx-auto w-full max-w-3xl space-y-6", className)}>
+      <Card.Header className="space-y-2 text-center">
+        <Card.Title className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {title}
+        </Card.Title>
+        <Card.Description className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
+          {subtitle}
+        </Card.Description>
       </Card.Header>
 
       <Card.Content className="space-y-6">
@@ -153,42 +204,22 @@ export function UploadCard({
           onChange={(files) => onUpload?.(files)}
         />
 
-        <div className="space-y-3">
-          <div className="text-sm font-medium text-foreground">
-            Arquivos enviados
-          </div>
-
-          {isLoading && (
-            <div className="text-sm text-muted-foreground">Carregando...</div>
-          )}
-          {isError && (
-            <div className="text-sm text-destructive">
-              Não foi possível carregar os arquivos.
-            </div>
-          )}
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Arquivo</TableHead>
-                <TableHead>Horas</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {files.length === 0 && !isLoading ? (
+        {files.length > 0 && (
+          <div className="space-y-3">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="text-muted-foreground"
-                  >
-                    Nenhum arquivo enviado.
-                  </TableCell>
+                  <TableHead>Arquivo</TableHead>
+                  <TableHead>Horas</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ) : (
-                files.map((file) => {
+              </TableHeader>
+              <TableBody>
+                {files.map((file) => {
                   const status = formatStatus(file.status)
+                  const isDeleteDisabled =
+                    file.status === "APROVADO" || deletingId === file.id
                   return (
                     <TableRow key={file.id}>
                       <TableCell className="max-w-[240px] truncate">
@@ -207,21 +238,23 @@ export function UploadCard({
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
-                          intent="danger"
-                          size="sm"
+                          intent="tertiary"
+                          size="icon-sm"
                           onClick={() => handleDelete(file.id)}
-                          disabled={!onDelete}
+                          disabled={isDeleteDisabled}
+                          aria-label={`Excluir ${file.title}`}
+                          title="Excluir"
                         >
-                          Excluir
+                          <Trash2 />
                         </Button>
                       </TableCell>
                     </TableRow>
                   )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </Card.Content>
     </Card>
   )
