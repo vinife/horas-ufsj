@@ -1,7 +1,6 @@
+/** PostCSS sem Tailwind — estilos globais em app/globals.scss (Sass). */
 const config = {
-  plugins: {
-    "@tailwindcss/postcss": {},
-  },
+  plugins: {},
 };
 
 export default config;

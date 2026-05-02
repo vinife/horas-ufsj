@@ -1,0 +1,398 @@
+// =============================================================================
+// _functions.scss
+// Funções SCSS reutilizáveis para o projeto
+// =============================================================================
+
+@use 'sass:math';
+@use 'sass:color';
+@use 'sass:string';
+@use 'sass:list';
+@use 'sass:map';
+@use 'variables' as *;
+@use '../base/typography' as *;
+
+// -----------------------------------------------------------------------------
+// 1. Conversão de Unidades
+// -----------------------------------------------------------------------------
+
+/// Converte px para rem
+/// @param {Number} $px      - valor em pixels
+/// @param {Number} $base    - base do font-size (padrão: 16)
+/// @return {Length} valor em rem
+@function rem($px, $base: 16) {
+  @if not math.is-unitless($px) {
+    $px: math.div($px, $px * 0 + 1); // remove unidade
+  }
+  @return math.div($px, $base) * 1rem;
+}
+
+/// Converte px para em relativo a um contexto
+/// @param {Number} $px      - valor em pixels
+/// @param {Number} $context - font-size do elemento pai em px
+/// @return {Length} valor em em
+@function em($px, $context: 16) {
+  @if not math.is-unitless($px) {
+    $px: math.div($px, $px * 0 + 1);
+  }
+  @return math.div($px, $context) * 1em;
+}
+
+/// Converte rem para px
+/// @param {Length} $rem  - valor em rem
+/// @param {Number} $base - base do font-size (padrão: 16)
+/// @return {Length} valor em px
+@function px($rem, $base: 16) {
+  @if not math.is-unitless($rem) {
+    $rem: math.div($rem, $rem * 0 + 1);
+  }
+  @return $rem * $base * 1px;
+}
+
+/// Converte um valor para porcentagem relativa a um container
+/// @param {Number} $value  - valor do elemento
+/// @param {Number} $parent - valor do container pai
+/// @return {Percentage}
+@function percent($value, $parent) {
+  @return math.div($value, $parent) * 100%;
+}
+
+// -----------------------------------------------------------------------------
+// 2. Espaçamento
+// -----------------------------------------------------------------------------
+
+/// Retorna um múltiplo da unidade base de espaçamento (4px)
+/// @param {Number} $multiplier - multiplicador
+/// @return {Length} valor em rem
+@function space($multiplier) {
+  $base: 4; // 4px
+  @return rem($base * $multiplier);
+}
+
+/// Retorna valor do mapa de espaçamento pelo nome
+/// @param {String} $key - 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10 | 12 | 16 | 20 | 24
+/// @return {Length}
+@function spacing($key) {
+  $map: (
+    '1':  $space-1,
+    '2':  $space-2,
+    '3':  $space-3,
+    '4':  $space-4,
+    '5':  $space-5,
+    '6':  $space-6,
+    '8':  $space-8,
+    '10': $space-10,
+    '12': $space-12,
+    '16': $space-16,
+    '20': $space-20,
+    '24': $space-24,
+  );
+
+  @if map.has-key($map, '#{$key}') {
+    @return map.get($map, '#{$key}');
+  } @else {
+    @warn 'Chave de espaçamento `#{$key}` não encontrada.';
+    @return null;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 3. Cores
+// -----------------------------------------------------------------------------
+
+/// Retorna cor da paleta red pelo número do step
+/// @param {Number} $step - 50 | 100 | 200 | ... | 950
+/// @return {Color}
+@function color-red($step) {
+  $palette: (
+    '50':  $color-red-50,
+    '100': $color-red-100,
+    '200': $color-red-200,
+    '300': $color-red-300,
+    '400': $color-red-400,
+    '500': $color-red-500,
+    '600': $color-red-600,
+    '700': $color-red-700,
+    '800': $color-red-800,
+    '900': $color-red-900,
+    '950': $color-red-950,
+  );
+
+  @if map.has-key($palette, '#{$step}') {
+    @return map.get($palette, '#{$step}');
+  } @else {
+    @warn 'Step `#{$step}` não encontrado na paleta red.';
+    @return null;
+  }
+}
+
+/// Retorna cor da paleta brown pelo número do step
+/// @param {Number} $step - 50 | 100 | 200 | ... | 950
+/// @return {Color}
+@function color-brown($step) {
+  $palette: (
+    '50':  $color-brown-50,
+    '100': $color-brown-100,
+    '200': $color-brown-200,
+    '300': $color-brown-300,
+    '400': $color-brown-400,
+    '500': $color-brown-500,
+    '600': $color-brown-600,
+    '700': $color-brown-700,
+    '800': $color-brown-800,
+    '900': $color-brown-900,
+    '950': $color-brown-950,
+  );
+
+  @if map.has-key($palette, '#{$step}') {
+    @return map.get($palette, '#{$step}');
+  } @else {
+    @warn 'Step `#{$step}` não encontrado na paleta brown.';
+    @return null;
+  }
+}
+
+/// Adiciona transparência a uma cor hex
+/// @param {Color}  $color   - cor base
+/// @param {Number} $opacity - opacidade de 0 a 1
+/// @return {Color} cor com alpha
+@function alpha($color, $opacity) {
+  @return color.adjust($color, $alpha: -#{1 - $opacity});
+}
+
+/// Clareia uma cor hex por uma porcentagem
+/// @param {Color}  $color  - cor base
+/// @param {Number} $amount - porcentagem de 0 a 100
+/// @return {Color}
+@function lighten-color($color, $amount) {
+  @return color.adjust($color, $lightness: $amount * 1%);
+}
+
+/// Escurece uma cor hex por uma porcentagem
+/// @param {Color}  $color  - cor base
+/// @param {Number} $amount - porcentagem de 0 a 100
+/// @return {Color}
+@function darken-color($color, $amount) {
+  @return color.adjust($color, $lightness: -#{$amount * 1%});
+}
+
+/// Mistura duas cores em uma proporção
+/// @param {Color}  $color1 - primeira cor
+/// @param {Color}  $color2 - segunda cor
+/// @param {Number} $weight - peso da primeira cor (0–100, padrão: 50)
+/// @return {Color}
+@function mix-colors($color1, $color2, $weight: 50) {
+  @return color.mix($color1, $color2, $weight * 1%);
+}
+
+/// Retorna preto ou branco dependendo do contraste com a cor de fundo
+/// @param {Color} $bg      - cor de fundo
+/// @param {Color} $dark    - cor escura (padrão: black)
+/// @param {Color} $light   - cor clara (padrão: white)
+/// @return {Color}
+@function contrast-color($bg, $dark: $color-black, $light: $color-white) {
+  $luminance: (
+    color.red($bg) * 0.2126 +
+    color.green($bg) * 0.7152 +
+    color.blue($bg) * 0.0722
+  ) / 255;
+
+  @if $luminance > 0.5 {
+    @return $dark;
+  } @else {
+    @return $light;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 4. Tipografia
+// -----------------------------------------------------------------------------
+
+/// Retorna tamanho de fonte pelo nome do step
+/// @param {String} $step - xs | sm | base | md | lg | xl | 2xl | 3xl | 4xl | 5xl
+/// @return {Length}
+@function font-size($step) {
+  $scale: (
+    'xs':   $font-size-xs,
+    'sm':   $font-size-sm,
+    'base': $font-size-base,
+    'md':   $font-size-md,
+    'lg':   $font-size-lg,
+    'xl':   $font-size-xl,
+    '2xl':  $font-size-2xl,
+    '3xl':  $font-size-3xl,
+    '4xl':  $font-size-4xl,
+    '5xl':  $font-size-5xl,
+  );
+
+  @if map.has-key($scale, $step) {
+    @return map.get($scale, $step);
+  } @else {
+    @warn 'Step de fonte `#{$step}` não encontrado.';
+    @return null;
+  }
+}
+
+/// Calcula line-height ideal para um font-size (razão áurea tipográfica)
+/// @param {Length} $size - font-size em rem ou px
+/// @return {Number} line-height sem unidade
+@function ideal-line-height($size) {
+  $size-px: $size;
+
+  @if math.unit($size) == 'rem' {
+    $size-px: $size * 16;
+  }
+
+  @if $size-px <= 14px { @return 1.6; }
+  @else if $size-px <= 18px { @return 1.5; }
+  @else if $size-px <= 24px { @return 1.375; }
+  @else if $size-px <= 36px { @return 1.25; }
+  @else { @return 1.1; }
+}
+
+/// Escala fluida de tipografia entre dois tamanhos usando clamp()
+/// @param {Length} $min-size   - tamanho mínimo (ex: 1rem)
+/// @param {Length} $max-size   - tamanho máximo (ex: 1.5rem)
+/// @param {Length} $min-width  - viewport mínima (ex: 480px)
+/// @param {Length} $max-width  - viewport máxima (ex: 1280px)
+/// @return {String} valor clamp()
+@function fluid-type($min-size, $max-size, $min-width: 480px, $max-width: 1280px) {
+  $slope: math.div($max-size - $min-size, $max-width - $min-width);
+  $intercept: $min-size - $slope * $min-width;
+
+  @return clamp(#{$min-size}, #{$intercept} + #{$slope * 100}vw, #{$max-size});
+}
+
+// -----------------------------------------------------------------------------
+// 5. Layout e Matemática
+// -----------------------------------------------------------------------------
+
+/// Retorna largura de uma coluna em um grid de N colunas
+/// @param {Number} $span  - número de colunas ocupadas
+/// @param {Number} $total - total de colunas do grid (padrão: 12)
+/// @param {Length} $gap   - espaçamento entre colunas
+/// @return {String} valor calc()
+@function grid-col($span, $total: 12, $gap: $space-6) {
+  @return calc(#{percent($span, $total)} - #{$gap});
+}
+
+/// Retorna o valor de z-index pelo nome do layer
+/// @param {String} $layer - below | base | raised | dropdown | sticky | overlay | modal | toast | tooltip
+/// @return {Number}
+@function z($layer) {
+  $layers: (
+    'below':    $z-below,
+    'base':     $z-base,
+    'raised':   $z-raised,
+    'dropdown': $z-dropdown,
+    'sticky':   $z-sticky,
+    'overlay':  $z-overlay,
+    'modal':    $z-modal,
+    'toast':    $z-toast,
+    'tooltip':  $z-tooltip,
+  );
+
+  @if map.has-key($layers, $layer) {
+    @return map.get($layers, $layer);
+  } @else {
+    @warn 'Layer `#{$layer}` não encontrado.';
+    @return null;
+  }
+}
+
+/// Clamp de valor numérico entre um mínimo e máximo
+/// @param {Number} $value - valor desejado
+/// @param {Number} $min   - limite inferior
+/// @param {Number} $max   - limite superior
+/// @return {Number}
+@function clamp-value($value, $min, $max) {
+  @return math.max($min, math.min($max, $value));
+}
+
+/// Calcula a razão entre dois valores
+/// @param {Number} $part  - parte
+/// @param {Number} $whole - todo
+/// @return {Number} razão de 0 a 1
+@function ratio($part, $whole) {
+  @return math.div($part, $whole);
+}
+
+// -----------------------------------------------------------------------------
+// 6. String
+// -----------------------------------------------------------------------------
+
+/// Substitui todas as ocorrências de uma substring por outra
+/// @param {String} $string  - string original
+/// @param {String} $search  - substring a buscar
+/// @param {String} $replace - substring substituta (padrão: '')
+/// @return {String}
+@function str-replace($string, $search, $replace: '') {
+  $index: string.index($string, $search);
+
+  @if $index {
+    @return string.slice($string, 1, $index - 1) +
+           $replace +
+           str-replace(
+             string.slice($string, $index + string.length($search)),
+             $search,
+             $replace
+           );
+  }
+
+  @return $string;
+}
+
+/// Converte string para maiúsculas (limitado a ASCII)
+/// @param {String} $string - string de entrada
+/// @return {String}
+@function to-upper($string) {
+  $lower: 'abcdefghijklmnopqrstuvwxyz';
+  $upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  $result: '';
+
+  @for $i from 1 through string.length($string) {
+    $char: string.slice($string, $i, $i);
+    $pos: string.index($lower, $char);
+
+    @if $pos {
+      $result: $result + string.slice($upper, $pos, $pos);
+    } @else {
+      $result: $result + $char;
+    }
+  }
+
+  @return $result;
+}
+
+// -----------------------------------------------------------------------------
+// 7. Lista / Map
+// -----------------------------------------------------------------------------
+
+/// Verifica se um valor existe em uma lista
+/// @param {List}  $list  - lista SCSS
+/// @param {*}     $value - valor a buscar
+/// @return {Boolean}
+@function list-contains($list, $value) {
+  @return list.index($list, $value) != null;
+}
+
+/// Retorna o último item de uma lista
+/// @param {List} $list - lista SCSS
+/// @return {*}
+@function list-last($list) {
+  @return list.nth($list, list.length($list));
+}
+
+/// Retorna o primeiro item de uma lista
+/// @param {List} $list - lista SCSS
+/// @return {*}
+@function list-first($list) {
+  @return list.nth($list, 1);
+}
+
+/// Faz merge de dois mapas (shallow)
+/// @param {Map} $map1 - mapa base
+/// @param {Map} $map2 - mapa a mesclar (sobrescreve chaves duplicadas)
+/// @return {Map}
+@function map-merge-safe($map1, $map2) {
+  @return map.merge($map1, $map2);
+}

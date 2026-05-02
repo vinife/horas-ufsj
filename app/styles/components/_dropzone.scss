@@ -1,0 +1,112 @@
+// =============================================================================
+// Dropzone (components/ui/dropzone.tsx)
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+
+.ui-dropzone-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: $border-width-sm solid var(--input);
+  background-color: var(--background);
+  padding: $space-2 $space-4;
+  outline: none;
+
+  &:focus-visible {
+    outline: $border-width-md solid var(--ring);
+    outline-offset: $border-width-md;
+  }
+
+  &--drag {
+    animation: ui-pulse-bg $transition-slow ease-in-out infinite;
+    background-color: color-mix(in oklch, #{$color-black} 5%, transparent);
+  }
+
+  &--invalid {
+    border-color: var(--destructive);
+  }
+}
+
+.ui-dropzone-label {
+  padding-bottom: $space-1;
+  font-size: $font-size-sm;
+  color: var(--muted-foreground);
+}
+
+.ui-dropzone-root {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.ui-dropzone-error-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: $space-2;
+  border-radius: var(--radius-md);
+  @supports (
+    background-color: color-mix(in oklch, var(--muted) 40%, transparent)
+  ) {
+    background-color: color-mix(in oklch, var(--muted) 40%, transparent);
+  }
+  padding: $space-2 $space-4;
+}
+
+.ui-dropzone-error-text {
+  height: $space-5;
+  font-size: calc($font-size-sm - calc($space-1 / 5));
+  font-weight: $font-weight-medium;
+  color: var(--destructive);
+}
+
+.ui-dropzone-progress {
+  position: relative;
+  height: $space-2;
+  width: 100%;
+  overflow: hidden;
+  border-radius: $border-radius-full;
+  background-color: var(--muted);
+}
+
+.ui-dropzone-progress-bar {
+  height: 100%;
+  width: 100%;
+  border-radius: $border-radius-full;
+  background-color: var(--primary);
+  transition: transform $transition-fast;
+
+  &.is-indeterminate {
+    width: 50%;
+    animation: ui-infinite-progress $transition-slow ease-in-out infinite;
+  }
+
+  &.is-error {
+    background-color: var(--destructive);
+  }
+}
+
+.ui-dropzone-file-input-label {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  background-color: var(--secondary);
+  padding: $space-2 $space-4;
+  font-weight: $font-weight-medium;
+  transition: background-color $transition-fast;
+
+  &:hover {
+    @supports (
+      background-color: color-mix(in oklch, var(--secondary) 80%, transparent)
+    ) {
+      background-color: color-mix(in oklch, var(--secondary) 80%, transparent);
+    }
+  }
+
+  &:focus-within {
+    outline: $border-width-md solid var(--ring);
+    outline-offset: $border-width-md;
+  }
+}

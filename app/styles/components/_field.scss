@@ -1,0 +1,103 @@
+// =============================================================================
+// Form Field Component
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+
+[data-slot="field-set"] {
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+
+  &:has([data-slot="checkbox-group"]),
+  &:has([data-slot="radio-group"]) {
+    gap: $space-3;
+  }
+}
+
+[data-slot="field-legend"] {
+  margin-bottom: $space-3;
+  font-weight: $font-weight-medium;
+
+  &[data-variant="label"] {
+    font-size: $font-size-sm;
+  }
+
+  &[data-variant="legend"] {
+    font-size: $font-size-base;
+  }
+}
+
+[data-slot="field-group"] {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: calc($space-6 + $space-1);
+  container-name: field-group;
+  container-type: inline-size;
+}
+
+[data-slot="field"] {
+  display: flex;
+  width: 100%;
+  gap: $space-3;
+
+  &[data-orientation="vertical"] {
+    flex-direction: column;
+  }
+
+  &[data-orientation="horizontal"] {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  &[data-invalid="true"] {
+    color: var(--destructive);
+  }
+}
+
+@container field-group (min-width: calc($bp-xs - $space-8)) {
+  [data-slot="field"][data-orientation="responsive"] {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+[data-slot="field-content"] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: $space-1;
+  line-height: $line-height-snug;
+}
+
+[data-slot="field-description"] {
+  text-align: left;
+  font-size: $font-size-sm;
+  line-height: $line-height-normal;
+  font-weight: $font-weight-regular;
+  color: var(--muted-foreground);
+
+  a {
+    text-decoration: underline;
+    text-underline-offset: $space-1;
+    &:hover {
+      color: var(--primary);
+    }
+  }
+}
+
+[data-slot="field-error"] {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-regular;
+  color: var(--destructive);
+}
+
+[data-slot="field-separator"] {
+  position: relative;
+  margin-top: -$space-2;
+  margin-bottom: -$space-2;
+  height: $space-5;
+  font-size: $font-size-sm;
+}

@@ -1,0 +1,366 @@
+// =============================================================================
+// _buttons.scss
+// Botões — componente design system (.ds-button)
+// Tokens de cor/radius: app/styles/_theme.scss (:root / .dark).
+// Escala de espaço alinhada a abstract/_variables.scss ($space-*).
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+@use "../abstract/functions" as *;
+
+// -----------------------------------------------------------------------------
+// 1. Base (layout, foco, disabled — espelha ui/button sem Tailwind)
+// -----------------------------------------------------------------------------
+.ds-button {
+  --ds-button-radius: var(--radius-4xl);
+  --ds-button-ring: color-mix(in oklch, var(--ring) 50%, transparent);
+
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: rem(6);
+  min-height: rem(36);
+  padding: 0 $space-3;
+  border: $border-width-sm solid transparent;
+  border-radius: var(--ds-button-radius);
+  background-clip: padding-box;
+  font-family: inherit;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  line-height: $line-height-tight;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    color $transition-fast,
+    background-color $transition-fast,
+    border-color $transition-fast,
+    opacity $transition-fast,
+    box-shadow $transition-fast;
+
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 $space-3 var(--ds-button-ring);
+  }
+
+  &:disabled,
+  &[aria-disabled="true"] {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  &[aria-invalid="true"] {
+    border-color: var(--destructive);
+    box-shadow: 0 0 0 $border-width-lg
+      color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+
+  svg {
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+
+  &:not([data-size^="icon"]) svg {
+    width: $font-size-base;
+    height: $font-size-base;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 2. Intenções (intent — substitui classes Tailwind do DS)
+// -----------------------------------------------------------------------------
+.ds-button[data-intent="primary"] {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+
+  &:hover:not(:disabled):not([aria-disabled="true"]) {
+    opacity: 0.9;
+  }
+}
+
+.ds-button[data-intent="secondary"] {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+
+  &:hover:not(:disabled):not([aria-disabled="true"]) {
+    opacity: 0.9;
+  }
+}
+
+.ds-button[data-intent="danger"] {
+  background-color: var(--destructive);
+  color: var(--destructive-foreground);
+
+  &:hover:not(:disabled):not([aria-disabled="true"]) {
+    opacity: 0.9;
+  }
+}
+
+.ds-button[data-intent="tertiary"] {
+  border-width: $border-width-md;
+  border-color: var(--primary);
+  background-color: transparent;
+  color: var(--primary);
+
+  &:hover:not(:disabled):not([aria-disabled="true"]) {
+    background-color: var(--destructive);
+    color: var(--accent-foreground);
+    border-color: var(--destructive);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 3. Tamanhos (size — data-size compatível com ui/button)
+// -----------------------------------------------------------------------------
+.ds-button[data-size="default"] {
+  min-height: rem(36);
+  padding: 0 $space-3;
+  gap: rem(6);
+}
+
+.ds-button[data-size="xs"] {
+  min-height: rem(24);
+  padding: 0 rem(10);
+  gap: $space-1;
+  font-size: $font-size-xs;
+
+  svg {
+    width: $font-size-xs;
+    height: $font-size-xs;
+  }
+}
+
+.ds-button[data-size="sm"] {
+  min-height: rem(32);
+  padding: 0 $space-3;
+  gap: $space-1;
+}
+
+.ds-button[data-size="lg"] {
+  min-height: rem(40);
+  padding: 0 $space-4;
+  gap: rem(6);
+}
+
+.ds-button[data-size="icon"] {
+  width: rem(36);
+  height: rem(36);
+  min-height: unset;
+  min-width: rem(36);
+  padding: 0;
+  gap: 0;
+}
+
+.ds-button[data-size="icon-xs"] {
+  width: rem(24);
+  height: rem(24);
+  min-height: unset;
+  min-width: rem(24);
+  padding: 0;
+  gap: 0;
+
+  svg {
+    width: $font-size-xs;
+    height: $font-size-xs;
+  }
+}
+
+.ds-button[data-size="icon-sm"] {
+  width: rem(32);
+  height: rem(32);
+  min-height: unset;
+  min-width: rem(32);
+  padding: 0;
+  gap: 0;
+}
+
+.ds-button[data-size="icon-lg"] {
+  width: rem(40);
+  height: rem(40);
+  min-height: unset;
+  min-width: rem(40);
+  padding: 0;
+  gap: 0;
+}
+
+// =============================================================================
+// UI Button Component (.ui-button + data-variant + data-size)
+// =============================================================================
+
+.ui-button {
+  --ui-btn-ring: color-mix(in oklch, var(--ring) 50%, transparent);
+
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: rem(6);
+  min-height: rem(36);
+  padding: 0 $space-3;
+  border: $border-width-sm solid transparent;
+  border-radius: var(--radius-4xl);
+  background-clip: padding-box;
+  font-family: inherit;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  line-height: $line-height-tight;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    color $transition-fast,
+    background-color $transition-fast,
+    border-color $transition-fast,
+    opacity $transition-fast,
+    box-shadow $transition-fast;
+
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 $border-width-lg var(--ui-btn-ring);
+  }
+
+  &:disabled,
+  &[aria-disabled="true"] {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  &[aria-invalid="true"] {
+    border-color: var(--destructive);
+    box-shadow: 0 0 0 $border-width-lg
+      color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+
+  svg {
+    pointer-events: none;
+    flex-shrink: 0;
+    width: $font-size-base;
+    height: $font-size-base;
+  }
+}
+
+.ui-button[data-variant="default"] {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  &:hover:not(:disabled) {
+    background-color: color-mix(in oklch, var(--primary) 80%, transparent);
+  }
+}
+
+.ui-button[data-variant="outline"] {
+  border-color: var(--border);
+  background-color: color-mix(in oklch, var(--input) 30%, transparent);
+  &:hover:not(:disabled) {
+    background-color: color-mix(in oklch, var(--input) 50%, transparent);
+    color: var(--foreground);
+  }
+}
+
+.ui-button[data-variant="secondary"] {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  &:hover:not(:disabled) {
+    background-color: color-mix(in oklch, var(--secondary) 80%, transparent);
+  }
+}
+
+.ui-button[data-variant="ghost"]:hover:not(:disabled) {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+
+.dark .ui-button[data-variant="ghost"]:hover:not(:disabled) {
+  background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+}
+
+.ui-button[data-variant="destructive"] {
+  background-color: color-mix(in oklch, var(--destructive) 10%, transparent);
+  color: var(--destructive);
+  &:hover:not(:disabled) {
+    background-color: color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+}
+
+.dark .ui-button[data-variant="destructive"] {
+  background-color: color-mix(in oklch, var(--destructive) 20%, transparent);
+}
+
+.ui-button[data-variant="link"] {
+  color: var(--primary);
+  text-underline-offset: $space-1;
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+  }
+}
+
+.ui-button[data-size="default"] {
+  min-height: rem(36);
+  padding: 0 $space-3;
+  gap: rem(6);
+}
+
+.ui-button[data-size="xs"] {
+  min-height: rem(24);
+  padding: 0 rem(10);
+  gap: $space-1;
+  font-size: $font-size-xs;
+  svg {
+    width: $font-size-xs;
+    height: $font-size-xs;
+  }
+}
+
+.ui-button[data-size="sm"] {
+  min-height: rem(32);
+  padding: 0 $space-3;
+  gap: $space-1;
+}
+
+.ui-button[data-size="lg"] {
+  min-height: rem(40);
+  padding: 0 $space-4;
+  gap: rem(6);
+}
+
+.ui-button[data-size="icon"] {
+  width: rem(36);
+  height: rem(36);
+  min-height: unset;
+  padding: 0;
+  gap: 0;
+}
+
+.ui-button[data-size="icon-xs"] {
+  width: rem(24);
+  height: rem(24);
+  min-height: unset;
+  padding: 0;
+  svg {
+    width: $font-size-xs;
+    height: $font-size-xs;
+  }
+}
+
+.ui-button[data-size="icon-sm"] {
+  width: rem(32);
+  height: rem(32);
+  min-height: unset;
+  padding: 0;
+}
+
+.ui-button[data-size="icon-lg"] {
+  width: rem(40);
+  height: rem(40);
+  min-height: unset;
+  padding: 0;
+}

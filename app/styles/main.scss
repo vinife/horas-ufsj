@@ -1,0 +1,23 @@
+// =============================================================================
+// main.scss — design system (importada em app/globals.scss)
+// =============================================================================
+
+@use "./components/animations";
+@use "./components/utilities";
+@use "./components/buttons";
+@use "./components/cards";
+@use "./components/tables";
+@use "./components/dialog";
+@use "./components/form-elements";
+@use "./components/field";
+@use "./components/accordion";
+@use "./components/tabs";
+@use "./components/switch";
+@use "./components/radio";
+@use "./components/select";
+@use "./components/dropdown";
+@use "./components/pagination";
+@use "./components/sonner";
+@use "./components/dropzone";
+@use "./components/pages-ds";
+@use "./components/compat-utilities";

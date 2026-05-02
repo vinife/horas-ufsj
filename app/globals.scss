@@ -1,0 +1,5 @@
+@charset "UTF-8";
+
+// Ordem: tema (:root) antes dos componentes que usam var(--*)
+@use './styles/theme';
+@use './styles/main';

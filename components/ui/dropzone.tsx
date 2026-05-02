@@ -502,9 +502,9 @@ const DropZoneArea = forwardRef<HTMLDivElement, DropZoneAreaProps>(
         {...props}
         aria-label="dropzone"
         className={cn(
-          "flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          context.isDragActive && "animate-pulse bg-black/5",
-          context.isInvalid && "border-destructive",
+          "ui-dropzone-area",
+          context.isDragActive && "ui-dropzone-area--drag",
+          context.isInvalid && "ui-dropzone-area--invalid",
           className,
         )}
       >
@@ -532,7 +532,7 @@ const DropzoneDescription = forwardRef<
       ref={ref}
       id={context.rootDescriptionId}
       {...rest}
-      className={cn("pb-1 text-sm text-muted-foreground", className)}
+      className={cn("ui-dropzone-label", className)}
     />
   );
 });
@@ -575,7 +575,7 @@ const DropzoneFileList = forwardRef<HTMLOListElement, DropZoneFileListProps>(
         ref={ref}
         aria-label="dropzone-file-list"
         {...props}
-        className={cn("flex flex-col gap-4", props.className)}
+        className={cn("ui-dropzone-root", props.className)}
       >
         {props.children}
       </ol>
@@ -625,10 +625,7 @@ const DropzoneFileListItem = forwardRef<
         ref={ref}
         aria-label="dropzone-file-list-item"
         aria-describedby={isInvalid ? messageId : undefined}
-        className={cn(
-          "flex flex-col justify-center gap-2 rounded-md bg-muted/40 px-4 py-2",
-          className,
-        )}
+        className={cn("ui-dropzone-error-area", className)}
       >
         {props.children}
       </li>
@@ -660,10 +657,7 @@ const DropzoneFileMessage = forwardRef<
       ref={ref}
       id={context.messageId}
       {...rest}
-      className={cn(
-        "h-5 text-[0.8rem] font-medium text-destructive",
-        rest.className,
-      )}
+      className={cn("ui-dropzone-error-text", rest.className)}
     >
       {body}
     </p>
@@ -686,10 +680,7 @@ const DropzoneMessage = forwardRef<HTMLParagraphElement, DropzoneMessageProps>(
         ref={ref}
         id={context.rootMessageId}
         {...rest}
-        className={cn(
-          "h-5 text-[0.8rem] font-medium text-destructive",
-          rest.className,
-        )}
+        className={cn("ui-dropzone-error-text", rest.className)}
       >
         {body}
       </p>
@@ -788,10 +779,7 @@ const DropzoneTrigger = forwardRef<HTMLLabelElement, DropzoneTriggerProps>(
       <label
         ref={ref}
         {...props}
-        className={cn(
-          "cursor-pointer rounded-sm bg-secondary px-4 py-2 font-medium ring-offset-background transition-colors focus-within:outline-none hover:bg-secondary/80 has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-ring has-[input:focus-visible]:ring-offset-2",
-          className,
-        )}
+        className={cn("ui-dropzone-file-input-label", className)}
       >
         {children}
         <input
@@ -837,17 +825,14 @@ const InfiniteProgress = forwardRef<HTMLDivElement, InfiniteProgressProps>(
         aria-valuemax={100}
         aria-valuetext={valueTextMap[props.status]}
         {...props}
-        className={cn(
-          "relative h-2 w-full overflow-hidden rounded-full bg-muted",
-          className,
-        )}
+        className={cn("ui-dropzone-progress", className)}
       >
         <div
           //   TODO: add proper done transition
           className={cn(
-            "h-full w-full rounded-full bg-primary",
-            done ? "translate-x-0" : "animate-infinite-progress",
-            error && "bg-destructive",
+            "ui-dropzone-progress-bar",
+            !done && "is-indeterminate",
+            error && "is-error",
           )}
         />
       </div>

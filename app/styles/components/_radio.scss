@@ -1,0 +1,68 @@
+// =============================================================================
+// Radio Group Component
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+
+[data-slot="radio-group"] {
+  display: grid;
+  width: 100%;
+  gap: $space-3;
+}
+
+[data-slot="radio-group-item"] {
+  position: relative;
+  display: flex;
+  aspect-ratio: 1;
+  width: $font-size-base;
+  height: $font-size-base;
+  flex-shrink: 0;
+  border-radius: $border-radius-full;
+  border: $border-width-sm solid var(--input);
+  outline: none;
+  cursor: pointer;
+
+  .dark & {
+    background-color: color-mix(in oklch, var(--input) 30%, transparent);
+  }
+
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 $border-width-lg color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &[data-state="checked"] {
+    border-color: var(--primary);
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .dark &[data-state="checked"] {
+    background-color: var(--primary);
+  }
+}
+
+[data-slot="radio-group-indicator"] {
+  display: flex;
+  width: $font-size-base;
+  height: $font-size-base;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-slot="radio-group-indicator"] span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: $space-2;
+  height: $space-2;
+  transform: translate(-50%, -50%);
+  border-radius: $border-radius-full;
+  background-color: var(--primary-foreground);
+}

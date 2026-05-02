@@ -1,0 +1,64 @@
+// =============================================================================
+// Pagination Component
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+@use "../abstract/functions" as *;
+
+[data-slot="pagination"] {
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  justify-content: center;
+}
+
+[data-slot="pagination-content"] {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  gap: $space-1;
+  list-style: none;
+  flex-wrap: wrap;
+}
+
+[data-slot="pagination-item"] {
+  display: flex;
+  min-width: 0;
+}
+
+[data-slot="pagination-ellipsis"] {
+  display: flex;
+  width: rem(36);
+  height: rem(36);
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: $font-size-base;
+    height: $font-size-base;
+  }
+}
+
+[data-slot="pagination-link"] {
+  &[aria-current="page"] {
+    pointer-events: none;
+  }
+
+  &[aria-disabled="true"] {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+}
+
+[data-pagination="prev"] {
+  padding-left: $space-2 !important;
+}
+
+[data-pagination="next"] {
+  padding-right: $space-2 !important;
+}

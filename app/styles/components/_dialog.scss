@@ -1,0 +1,109 @@
+// =============================================================================
+// Dialog Component
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+@use "../abstract/functions" as *;
+
+[data-slot="dialog-overlay"] {
+  position: fixed;
+  inset: 0;
+  z-index: $z-overlay;
+  background-color: color-mix(in oklch, #{$color-black} 50%, transparent);
+
+  &[data-state="open"] {
+    animation: ui-fade-in $transition-fast ease-out forwards;
+  }
+
+  &[data-state="closed"] {
+    animation: ui-fade-out $transition-fast forwards;
+  }
+}
+
+[data-slot="dialog-content"] {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: $z-overlay;
+  display: grid;
+  width: 100%;
+  max-width: calc(100% - $space-8);
+  transform: translate(-50%, -50%);
+  gap: $space-4;
+  border-radius: var(--radius-lg);
+  border: $border-width-sm solid var(--border);
+  background-color: var(--background);
+  padding: $space-6;
+  box-shadow: var(--shadow-lg);
+  outline: none;
+
+  @media (min-width: $bp-sm) {
+    max-width: rem(512);
+  }
+
+  &[data-state="open"] {
+    animation: ui-zoom-in-95 $transition-fast ease-out forwards;
+  }
+
+  &[data-state="closed"] {
+    animation: ui-zoom-out-95 $transition-fast forwards;
+  }
+}
+
+[data-slot="dialog-header"] {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  text-align: center;
+
+  @media (min-width: $bp-sm) {
+    text-align: left;
+  }
+}
+
+[data-slot="dialog-footer"] {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: $space-2;
+
+  @media (min-width: $bp-sm) {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+
+[data-slot="dialog-title"] {
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  line-height: $line-height-tight;
+}
+
+[data-slot="dialog-description"] {
+  font-size: $font-size-sm;
+  color: var(--muted-foreground);
+}
+
+[data-slot="dialog-close"] {
+  position: absolute;
+  top: $space-4;
+  right: $space-4;
+  border-radius: var(--radius-sm);
+  opacity: 0.7;
+  transition: opacity $transition-fast;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: $border-width-md solid var(--ring);
+    outline-offset: $border-width-md;
+  }
+
+  svg {
+    width: $font-size-base;
+    height: $font-size-base;
+    pointer-events: none;
+  }
+}

@@ -1,26 +1,39 @@
 import * as React from "react"
-import { Button as UIButton } from "@/components/ui/button"
+import { Slot } from "radix-ui"
+
 import { cn } from "@/lib/utils"
 
-type DSButtonProps = React.ComponentProps<typeof UIButton> & {
+type DSButtonProps = React.ComponentProps<"button"> & {
   intent?: "primary" | "secondary" | "danger" | "tertiary"
+  size?:
+    | "default"
+    | "xs"
+    | "sm"
+    | "lg"
+    | "icon"
+    | "icon-xs"
+    | "icon-sm"
+    | "icon-lg"
+  asChild?: boolean
 }
 
 export function Button({
   intent = "primary",
+  size = "default",
+  asChild = false,
   className,
+  type = "button",
   ...props
 }: DSButtonProps) {
-  const intentStyles = {
-    primary: "bg-primary text-primary-foreground hover:opacity-90",
-    secondary: "bg-secondary text-secondary-foreground hover:opacity-90",
-    danger: "bg-destructive text-destructive-foreground hover:opacity-90",
-    tertiary: "border-2 border-primary bg-transparent text-primary hover:bg-destructive hover:text-accent-foreground",
-  }
+  const Comp = asChild ? Slot.Root : "button"
 
   return (
-    <UIButton
-      className={cn(intentStyles[intent], className)}
+    <Comp
+      data-slot="button"
+      data-intent={intent}
+      data-size={size}
+      type={asChild ? undefined : type}
+      className={cn("ds-button", className)}
       {...props}
     />
   )

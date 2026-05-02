@@ -1,0 +1,68 @@
+// =============================================================================
+// Table Component
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+@use "../abstract/functions" as *;
+
+[data-slot="table-container"] {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+}
+
+[data-slot="table"] {
+  width: 100%;
+  font-size: $font-size-sm;
+  caption-side: bottom;
+}
+
+[data-slot="table-header"] tr {
+  border-bottom: $border-width-sm solid var(--border);
+}
+
+[data-slot="table-body"] tr:last-child {
+  border-bottom: 0;
+}
+
+[data-slot="table-footer"] {
+  background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+  border-top: $border-width-sm solid var(--border);
+  font-weight: $font-weight-medium;
+}
+
+[data-slot="table-row"] {
+  border-bottom: $border-width-sm solid var(--border);
+  transition: background-color $transition-fast;
+
+  &:hover {
+    background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+  }
+
+  &[data-state="selected"] {
+    background-color: var(--muted);
+  }
+}
+
+[data-slot="table-head"] {
+  height: rem(48);
+  padding: 0 $space-3;
+  text-align: left;
+  vertical-align: middle;
+  font-weight: $font-weight-medium;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+[data-slot="table-cell"] {
+  padding: $space-3;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+[data-slot="table-caption"] {
+  margin-top: $space-4;
+  font-size: $font-size-sm;
+  color: var(--muted-foreground);
+}

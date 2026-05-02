@@ -1,0 +1,27 @@
+// =============================================================================
+// Sonner Toast Notifications
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+
+.toaster {
+  font-family: inherit;
+}
+
+.toaster svg {
+  width: $font-size-base;
+  height: $font-size-base;
+}
+
+.cn-toast {
+  border-radius: var(--radius);
+  border: $border-width-sm solid var(--border);
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+}
+
+.sonner-icon {
+  width: $font-size-base;
+  height: $font-size-base;
+}

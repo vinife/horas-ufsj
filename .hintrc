@@ -1,0 +1,18 @@
+{
+  "extends": [
+    "development"
+  ],
+  "hints": {
+    "compat-api/css": [
+      "default",
+      {
+        "ignore": [
+          "background-color: color-mix(in oklch, var(--input) 50%, transparent)",
+          "background-color: color-mix(in oklch, var(--border) 50%, transparent)",
+          "background-color: color-mix(in oklch, var(--input) 30%, transparent)",
+          "background-color: color-mix(in oklch, var(--secondary) 80%, transparent)"
+        ]
+      }
+    ]
+  }
+}

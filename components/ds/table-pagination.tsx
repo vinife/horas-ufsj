@@ -1,15 +1,7 @@
 "use client"
 
 import * as React from "react"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from "lucide-react"
 
 type AutoPageSizeOptions = {
   tableViewportRef: React.RefObject<HTMLDivElement>
@@ -75,7 +67,7 @@ export function useAutoPageSize({
     )
 
     setPageSize((prev) => (prev === nextPageSize ? prev : nextPageSize))
-  }, [maxPageSize, minPageSize])
+  }, [tableViewportRef, setPageSize, maxPageSize, minPageSize])
 
   React.useEffect(() => {
     const rafId = window.requestAnimationFrame(() => {
@@ -135,59 +127,77 @@ export function PaginationControls({
   if (safeTotalPages <= 1) return null
 
   return (
-    <Pagination>
-      <PaginationContent>
-        <PaginationItem>
-          <PaginationPrevious
-            href="#"
-            text="Anterior"
+    <nav role="navigation" aria-label="Paginação" data-slot="pagination">
+      <ul data-slot="pagination-content">
+        <li data-slot="pagination-item">
+          <button
+            type="button"
+            className="ui-button"
+            data-slot="pagination-link"
+            data-variant="ghost"
+            data-size="default"
+            data-pagination="prev"
+            aria-label="Ir para a página anterior"
             aria-disabled={safeCurrentPage <= 1}
-            className={safeCurrentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
-            onClick={(event) => {
-              event.preventDefault()
+            disabled={safeCurrentPage <= 1}
+            onClick={() => {
               if (safeCurrentPage <= 1) return
               onPageChange(safeCurrentPage - 1)
             }}
-          />
-        </PaginationItem>
+          >
+            <ChevronLeftIcon data-icon="inline-start" />
+            <span className="u-pagination-text">Anterior</span>
+          </button>
+        </li>
 
         {pageLinks.map((value, index) => (
-          <PaginationItem key={`${value}-${index}`}>
+          <li data-slot="pagination-item" key={`${value}-${index}`}>
             {value === "ellipsis" ? (
-              <PaginationEllipsis />
+              <span aria-hidden data-slot="pagination-ellipsis">
+                <MoreHorizontalIcon />
+                <span className="sr-only">Mais páginas</span>
+              </span>
             ) : (
-              <PaginationLink
-                href="#"
-                isActive={value === safeCurrentPage}
-                onClick={(event) => {
-                  event.preventDefault()
+              <button
+                type="button"
+                className="ui-button"
+                data-slot="pagination-link"
+                data-variant={value === safeCurrentPage ? "outline" : "ghost"}
+                data-size="icon"
+                aria-label={`Ir para a página ${value}`}
+                aria-current={value === safeCurrentPage ? "page" : undefined}
+                onClick={() => {
+                  if (value === safeCurrentPage) return
                   onPageChange(value)
                 }}
               >
                 {value}
-              </PaginationLink>
+              </button>
             )}
-          </PaginationItem>
+          </li>
         ))}
 
-        <PaginationItem>
-          <PaginationNext
-            href="#"
-            text="Próxima"
+        <li data-slot="pagination-item">
+          <button
+            type="button"
+            className="ui-button"
+            data-slot="pagination-link"
+            data-variant="ghost"
+            data-size="default"
+            data-pagination="next"
+            aria-label="Ir para a próxima página"
             aria-disabled={safeCurrentPage >= safeTotalPages}
-            className={
-              safeCurrentPage >= safeTotalPages
-                ? "pointer-events-none opacity-50"
-                : undefined
-            }
-            onClick={(event) => {
-              event.preventDefault()
+            disabled={safeCurrentPage >= safeTotalPages}
+            onClick={() => {
               if (safeCurrentPage >= safeTotalPages) return
               onPageChange(safeCurrentPage + 1)
             }}
-          />
-        </PaginationItem>
-      </PaginationContent>
-    </Pagination>
+          >
+            <span className="u-pagination-text">Próxima</span>
+            <ChevronRightIcon data-icon="inline-end" />
+          </button>
+        </li>
+      </ul>
+    </nav>
   )
 }

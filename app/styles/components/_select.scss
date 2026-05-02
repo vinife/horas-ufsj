@@ -1,0 +1,198 @@
+// =============================================================================
+// Select Component
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+
+[data-slot="select-group"] {
+  padding: $space-1;
+  scroll-margin-block: $space-1;
+}
+
+.select-trigger-chevron {
+  width: $font-size-base;
+  height: $font-size-base;
+  pointer-events: none;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+
+[data-slot="select-value"] {
+  display: flex;
+  align-items: center;
+  gap: calc($space-1 + calc($space-1 / 2));
+  line-clamp: 1;
+}
+
+[data-slot="select-trigger"] {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc($space-1 + calc($space-1 / 2));
+  border-radius: var(--radius-4xl);
+  border: $border-width-sm solid var(--input);
+  background-color: color-mix(in oklch, var(--input) 30%, transparent);
+  padding: $space-2 $space-3;
+  font-size: $font-size-sm;
+  white-space: nowrap;
+  outline: none;
+  cursor: pointer;
+  transition: background-color $transition-fast;
+
+  &[data-placeholder] {
+    color: var(--muted-foreground);
+  }
+
+  &[data-size="default"] {
+    min-height: calc($space-8 + $space-1);
+  }
+
+  &[data-size="sm"] {
+    min-height: $space-8;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 $border-width-lg
+      color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+
+  &[aria-invalid="true"] {
+    border-color: var(--destructive);
+  }
+
+  .dark &:hover {
+    background-color: color-mix(in oklch, var(--input) 50%, transparent);
+  }
+
+  svg {
+    width: $font-size-base;
+    height: $font-size-base;
+    flex-shrink: 0;
+    pointer-events: none;
+    color: var(--muted-foreground);
+  }
+}
+
+[data-slot="select-content"] {
+  position: relative;
+  z-index: calc($z-dropdown / 2);
+  max-height: var(--radix-select-content-available-height);
+  min-width: calc($space-24 + $space-12);
+  transform-origin: var(--radix-select-content-transform-origin);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: var(--radius-2xl);
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow:
+    $shadow-2xl,
+    0 0 0 $border-width-sm
+      color-mix(in oklch, var(--foreground) 5%, transparent);
+
+  &[data-state="open"],
+  &[data-open] {
+    animation:
+      ui-fade-in $transition-fast ease-out,
+      ui-zoom-in-select $transition-fast ease-out;
+  }
+
+  &[data-side="bottom"] {
+    animation-name: ui-fade-in, ui-slide-in-from-top-2;
+  }
+
+  &[data-align-trigger="true"] {
+    animation: none;
+  }
+}
+
+@keyframes ui-zoom-in-select {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+[data-slot="select-label"] {
+  padding: calc($space-2 + calc($space-1 / 2)) $space-3;
+  font-size: $font-size-xs;
+  color: var(--muted-foreground);
+}
+
+.select-item-indicator-wrap {
+  pointer-events: none;
+  position: absolute;
+  right: $space-2;
+  display: flex;
+  width: $font-size-base;
+  height: $font-size-base;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-slot="select-item"] {
+  position: relative;
+  display: flex;
+  width: 100%;
+  cursor: default;
+  align-items: center;
+  gap: calc($space-2 + calc($space-1 / 2));
+  border-radius: var(--radius-xl);
+  padding: $space-2 $space-8 $space-2 $space-3;
+  font-size: $font-size-sm;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+
+  &:focus,
+  &[data-highlighted] {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  &[data-disabled] {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  svg {
+    width: $font-size-base;
+    height: $font-size-base;
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+}
+
+[data-slot="select-separator"] {
+  pointer-events: none;
+  margin: $space-1 (-$space-1);
+  height: $border-width-sm;
+  background-color: color-mix(in oklch, var(--border) 50%, transparent);
+}
+
+[data-slot="select-scroll-up-button"],
+[data-slot="select-scroll-down-button"] {
+  z-index: $z-raised;
+  display: flex;
+  cursor: default;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--popover);
+  padding: $space-1 0;
+
+  svg {
+    width: $font-size-base;
+    height: $font-size-base;
+  }
+}

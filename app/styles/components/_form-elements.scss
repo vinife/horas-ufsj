@@ -1,0 +1,87 @@
+// =============================================================================
+// Form Elements: Input, Label, Separator
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+@use "../abstract/functions" as *;
+
+// --- Input -----------------------------------------------------------------
+[data-slot="input"] {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: rem(36);
+  border-radius: var(--radius-md);
+  border: $border-width-sm solid var(--input);
+  background-color: transparent;
+  padding: $space-1 $space-3;
+  font-size: $font-size-base;
+  line-height: $line-height-normal;
+  outline: none;
+  transition:
+    color $transition-fast,
+    box-shadow $transition-fast;
+
+  @media (min-width: $bp-md) {
+    font-size: $font-size-sm;
+  }
+
+  &::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  &::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  &:disabled {
+    pointer-events: none;
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 $border-width-lg
+      color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+
+  &[aria-invalid="true"] {
+    border-color: var(--destructive);
+    box-shadow: 0 0 0 $border-width-lg
+      color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+
+  .dark & {
+    background-color: color-mix(in oklch, var(--input) 30%, transparent);
+  }
+}
+
+// --- Label -----------------------------------------------------------------
+[data-slot="label"] {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  line-height: $line-height-tight;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+// --- Separator -------------------------------------------------------------
+[data-slot="separator"][data-orientation="horizontal"] {
+  height: $border-width-sm;
+  width: 100%;
+  background-color: var(--border);
+  flex-shrink: 0;
+}
+
+[data-slot="separator"][data-orientation="vertical"] {
+  width: $border-width-sm;
+  align-self: stretch;
+  background-color: var(--border);
+  flex-shrink: 0;
+}

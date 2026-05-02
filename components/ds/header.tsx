@@ -78,45 +78,23 @@ export function Header({
   const selectedTab = activeTabId ?? safeTabs[0]?.id
 
   return (
-    <header
-      className={cn(
-        "relative w-full border-b border-border bg-background",
-        "flex min-h-16 items-center justify-between gap-4 px-4 py-3",
-        className,
-      )}
-    >
-      <div className="flex shrink-0 items-center gap-3">
+    <header className={cn("ds-header", className)}>
+      <div className="ds-header__brand">
         <Image
           src="/Ccomp.png"
           alt="Logo"
           width={32}
           height={32}
-          className="size-8 object-cover"
+          className="ds-header__logo"
         />
-
       </div>
 
-      <div className="flex flex-1 items-center justify-center">
+      <div className="ds-header__tabs-wrap">
         {selectedTab ? (
           <Tabs
             value={selectedTab}
             onValueChange={(value) => onTabChange?.(value)}
           >
-            {/* <TabsList className="w-full items-center justify-center gap-1">
-              {safeTabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  disabled={tab.disabled}
-                  className="transition-all duration-300 data-[state=active]:min-w-28 data-[state=inactive]:min-w-fit data-[state=active]:px-3 data-[state=inactive]:px-1 data-[state=active]:text-sm data-[state=inactive]:text-xs data-[state=inactive]:w-7"
-                >
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="inline sm:hidden transition-all duration-300 overflow-hidden whitespace-nowrap">
-                    {tab.id === selectedTab ? tab.label : tab.label[0]}
-                  </span>
-                </TabsTrigger>
-              ))}
-            </TabsList> */}
             <TabsList className="items-center gap-1 justify-center px-1.5">
               {safeTabs.map((tab) => {
                 const isActive = tab.id === selectedTab
@@ -150,21 +128,6 @@ export function Header({
                     >
                       {tab.label}
                     </span>
-                    {/* {!isActive && (
-                      <span className="md:hidden flex size-6 shrink-0 items-center justify-center rounded-full ring-1 ring-border bg-muted text-[11px] font-medium text-muted-foreground leading-none">
-                        {tab.label[0]}
-                      </span>
-                    )}
-
-                    <span
-                      className={cn(
-                        "whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out",
-                        isActive ? "max-w-40 opacity-100" : "max-w-0 opacity-0",
-                        "md:max-w-40 md:opacity-100",
-                      )}
-                    >
-                      {tab.label}
-                    </span> */}
                   </TabsTrigger>
                 )
               })}
@@ -173,19 +136,19 @@ export function Header({
         ) : null}
       </div>
 
-      <div className="hidden items-center gap-2 md:flex overflow-hidden">
+      <div className="ds-header__desktop">
         {authStatus === "authed" && (
-          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+          <span className="ds-header__user">
             {authUser?.name ?? authUser?.email}
           </span>
         )}
-        <div className="flex h-9 items-center px-4">
+        <div className="ds-header__theme-wrap">
           <Switch
             checked={hydrated ? theme === "dark" : false}
             onCheckedChange={() => toggleTheme()}
             aria-label="Alternar tema"
             disabled={!hydrated}
-            className="translate-y-px"
+            className="ds-header__switch-nudge"
           />
         </div>
 
@@ -203,33 +166,28 @@ export function Header({
         <DropdownMenuTrigger asChild>
           <Button
             intent="secondary"
-            className="size-10 min-w-0 rounded-full p-0 md:hidden"
+            className="ds-header__menu-trigger"
             aria-label="Abrir menu"
           >
-            <MoreHorizontalIcon className="size-5" />
+            <MoreHorizontalIcon />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="w-64 md:hidden"
-        >
+        <DropdownMenuContent align="end" className="w-64 md:hidden">
           {authStatus === "authed" ? (
             <>
-              <div className="px-3 py-2">
-                <p className="truncate text-sm font-medium">
+              <div className="ds-header__dropdown-head">
+                <p className="ds-header__dropdown-name">
                   {authUser?.name ?? authUser?.email}
                 </p>
                 {authUser?.name && authUser?.email ? (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {authUser.email}
-                  </p>
+                  <p className="ds-header__dropdown-email">{authUser.email}</p>
                 ) : null}
               </div>
               <DropdownMenuSeparator />
             </>
           ) : null}
 
-          <div className="flex items-center justify-between rounded-xl px-3 py-2 text-sm">
+          <div className="ds-header__dropdown-theme-row">
             <span>Modo escuro</span>
             <Switch
               checked={hydrated ? theme === "dark" : false}

@@ -1,0 +1,75 @@
+// =============================================================================
+// Utilitários globais (substitui classes Tailwind mais usadas)
+// =============================================================================
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.u-animate-spin {
+  animation: ui-spin 1s linear infinite;
+}
+
+.u-hidden {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .u-sm\:inline {
+    display: inline;
+  }
+
+  .u-sm\:hidden {
+    display: none;
+  }
+
+  .u-sm\:block {
+    display: block;
+  }
+}
+
+@media (min-width: 768px) {
+  .u-md\:flex {
+    display: flex;
+  }
+
+  .u-md\:hidden {
+    display: none;
+  }
+}
+
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.min-h-dvh {
+  min-height: 100dvh;
+}
+
+.w-full {
+  width: 100%;
+}
+
+/* Texto Previous/Next na paginação: oculto em viewports estreitas */
+.u-pagination-text {
+  display: none;
+
+  @media (min-width: 640px) {
+    display: block;
+  }
+}

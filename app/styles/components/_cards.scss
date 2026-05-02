@@ -1,0 +1,164 @@
+// =============================================================================
+// Card Component
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+
+// --- Badge -----------------------------------------------------------------
+[data-slot="badge"] {
+  display: inline-flex;
+  height: $space-8;
+  align-items: center;
+  justify-content: center;
+  gap: $space-1;
+  width: fit-content;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  border-radius: var(--radius-4xl);
+  border: $border-width-sm solid transparent;
+  padding: calc($space-1 / 2) $space-2;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  transition:
+    color $transition-fast,
+    background-color $transition-fast;
+
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 $border-width-lg color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+
+  &[aria-invalid="true"] {
+    border-color: var(--destructive);
+    box-shadow: 0 0 0 $border-width-lg
+      color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+
+  svg {
+    width: $font-size-xs;
+    height: $font-size-xs;
+    pointer-events: none;
+  }
+}
+
+[data-slot="badge"][data-variant="default"] {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  a &:hover {
+    background-color: color-mix(in oklch, var(--primary) 80%, transparent);
+  }
+}
+
+[data-slot="badge"][data-variant="secondary"] {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+[data-slot="badge"][data-variant="destructive"] {
+  background-color: color-mix(in oklch, var(--destructive) 10%, transparent);
+  color: var(--destructive);
+}
+
+.dark [data-slot="badge"][data-variant="destructive"] {
+  background-color: color-mix(in oklch, var(--destructive) 20%, transparent);
+}
+
+[data-slot="badge"][data-variant="pending"] {
+  background-color: var(--status-pending);
+  color: var(--status-pending-foreground);
+}
+
+[data-slot="badge"][data-variant="approved"] {
+  background-color: var(--status-approved);
+  color: var(--status-approved-foreground);
+}
+
+[data-slot="badge"][data-variant="denied"] {
+  background-color: var(--status-denied);
+  color: var(--status-denied-foreground);
+}
+
+[data-slot="badge"][data-variant="outline"] {
+  border-color: var(--border);
+  color: var(--foreground);
+  background-color: color-mix(in oklch, var(--input) 30%, transparent);
+}
+
+[data-slot="badge"][data-variant="ghost"]:hover {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+
+[data-slot="badge"][data-variant="link"] {
+  color: var(--primary);
+  text-underline-offset: $space-1;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// --- Card ------------------------------------------------------------------
+[data-slot="card"] {
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+  border-radius: var(--radius-xl);
+  border: $border-width-sm solid var(--border);
+  background-color: var(--card);
+  color: var(--card-foreground);
+  padding-top: $space-6;
+  padding-bottom: $space-6;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-slot="card-header"] {
+  display: grid;
+  grid-template-rows: auto auto;
+  align-items: start;
+  gap: $space-2;
+  padding-left: $space-6;
+  padding-right: $space-6;
+
+  &:has([data-slot="card-action"]) {
+    grid-template-columns: 1fr auto;
+  }
+
+  &.border-b {
+    padding-bottom: $space-6;
+  }
+}
+
+[data-slot="card-title"] {
+  font-weight: $font-weight-semibold;
+  line-height: 1;
+}
+
+[data-slot="card-description"] {
+  font-size: $font-size-sm;
+  color: var(--muted-foreground);
+}
+
+[data-slot="card-action"] {
+  grid-column-start: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+  justify-self: end;
+}
+
+[data-slot="card-content"] {
+  padding-left: $space-6;
+  padding-right: $space-6;
+}
+
+[data-slot="card-footer"] {
+  display: flex;
+  align-items: center;
+  padding-left: $space-6;
+  padding-right: $space-6;
+
+  &.border-t {
+    padding-top: $space-6;
+  }
+}

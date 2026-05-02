@@ -1,0 +1,329 @@
+// =============================================================================
+// _typography.scss
+// Estilos globais de tipografia
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 1. Importação de Fontes (Google Fonts)
+// Substitua pelas fontes do seu projeto
+// -----------------------------------------------------------------------------
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700&display=swap');
+
+// -----------------------------------------------------------------------------
+// 2. Variáveis de Tipografia
+// -----------------------------------------------------------------------------
+
+// Famílias
+$font-fallback:  -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+$font-primary:   'Raleway', $font-fallback;
+$font-mono:      'Roboto Mono', monospace;
+
+// Escala de tamanhos (rem)
+$font-size-xs:   0.75rem;    // 12px
+$font-size-sm:   0.875rem;   // 14px
+$font-size-base: 1rem;       // 16px
+$font-size-md:   1.125rem;   // 18px
+$font-size-lg:   1.25rem;    // 20px
+$font-size-xl:   1.5rem;     // 24px
+$font-size-2xl:  1.875rem;   // 30px
+$font-size-3xl:  2.25rem;    // 36px
+$font-size-4xl:  3rem;       // 48px
+$font-size-5xl:  3.75rem;    // 60px
+
+// Pesos
+$font-weight-regular:   400;
+$font-weight-medium:    500;
+$font-weight-semibold:  600;
+$font-weight-bold:      700;
+
+// Altura de linha
+$line-height-tight:    1.25;
+$line-height-snug:     1.375;
+$line-height-normal:   1.5;
+$line-height-relaxed:  1.625;
+$line-height-loose:    2;
+
+// Espaçamento entre letras
+$letter-spacing-tight:  -0.025em;
+$letter-spacing-normal:  0em;
+$letter-spacing-wide:    0.025em;
+$letter-spacing-wider:   0.05em;
+$letter-spacing-widest:  0.1em;
+
+// -----------------------------------------------------------------------------
+// 3. Base — Body e HTML
+// -----------------------------------------------------------------------------
+html {
+  font-size: 100%; // 16px base
+}
+
+body {
+  font-family: $font-primary, $font-fallback;
+  font-size: $font-size-base;
+  font-weight: $font-weight-regular;
+  line-height: $line-height-normal;
+  letter-spacing: $letter-spacing-normal;
+  color: inherit;
+}
+
+// -----------------------------------------------------------------------------
+// 4. Headings
+// -----------------------------------------------------------------------------
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: $font-primary, $font-fallback;
+  font-weight: $font-weight-bold;
+  line-height: $line-height-tight;
+  letter-spacing: $letter-spacing-tight;
+  color: inherit;
+}
+
+h1 { font-size: $font-size-4xl; }
+h2 { font-size: $font-size-3xl; }
+h3 { font-size: $font-size-2xl; }
+h4 { font-size: $font-size-xl;  }
+h5 { font-size: $font-size-lg;  }
+h6 { font-size: $font-size-md;  }
+
+// -----------------------------------------------------------------------------
+// 5. Parágrafos e Texto Corrido
+// -----------------------------------------------------------------------------
+p {
+  font-size: $font-size-base;
+  line-height: $line-height-relaxed;
+  margin-bottom: 1em;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 6. Links
+// -----------------------------------------------------------------------------
+a {
+  font-weight: $font-weight-medium;
+  text-underline-offset: 0.2em;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 0.75;
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 7. Ênfase e Formatação Inline
+// -----------------------------------------------------------------------------
+strong,
+b {
+  font-weight: $font-weight-bold;
+}
+
+em,
+i {
+  font-style: italic;
+}
+
+small {
+  font-size: $font-size-sm;
+  line-height: $line-height-normal;
+}
+
+mark {
+  background-color: #fef08a;
+  color: inherit;
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+}
+
+del {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+ins {
+  text-decoration: underline;
+}
+
+abbr[title] {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+// -----------------------------------------------------------------------------
+// 8. Código
+// -----------------------------------------------------------------------------
+// code,
+// kbd,
+// samp,
+// pre {
+//   font-family: $font-mono;
+//   font-size: $font-size-sm;
+// }
+
+// code {
+//   background-color: rgba(0, 0, 0, 0.06);
+//   padding: 0.15em 0.4em;
+//   border-radius: 4px;
+//   word-break: break-word;
+// }
+
+// pre {
+//   overflow-x: auto;
+//   padding: 1rem 1.25rem;
+//   border-radius: 8px;
+//   background-color: rgba(0, 0, 0, 0.06);
+//   line-height: $line-height-relaxed;
+
+//   code {
+//     background: none;
+//     padding: 0;
+//     font-size: inherit;
+//     border-radius: 0;
+//   }
+// }
+
+// kbd {
+//   display: inline-block;
+//   padding: 0.15em 0.4em;
+//   border: 1px solid currentColor;
+//   border-radius: 4px;
+//   font-size: $font-size-xs;
+//   line-height: 1.4;
+//   white-space: nowrap;
+// }
+
+// -----------------------------------------------------------------------------
+// 9. Blockquote
+// -----------------------------------------------------------------------------
+// blockquote {
+//   padding-left: 1.25rem;
+//   border-left: 4px solid currentColor;
+//   font-size: $font-size-md;
+//   font-style: italic;
+//   line-height: $line-height-relaxed;
+//   opacity: 0.85;
+
+//   cite {
+//     display: block;
+//     margin-top: 0.5rem;
+//     font-size: $font-size-sm;
+//     font-style: normal;
+//     font-weight: $font-weight-medium;
+//     opacity: 0.7;
+
+//     &::before {
+//       content: '— ';
+//     }
+//   }
+// }
+
+// -----------------------------------------------------------------------------
+// 10. Listas
+// -----------------------------------------------------------------------------
+ul,
+ol {
+  padding-left: 1.5rem;
+
+  li {
+    line-height: $line-height-relaxed;
+    margin-bottom: 0.25em;
+  }
+}
+
+ul {
+  list-style-type: disc;
+}
+
+ol {
+  list-style-type: decimal;
+}
+
+ul ul,
+ol ol,
+ul ol,
+ol ul {
+  margin-top: 0.25em;
+  margin-bottom: 0;
+}
+
+// -----------------------------------------------------------------------------
+// 11. Utilitários de Tipografia
+// -----------------------------------------------------------------------------
+
+// Tamanhos
+.text-xs      { font-size: $font-size-xs; }
+.text-sm      { font-size: $font-size-sm; }
+.text-base    { font-size: $font-size-base; }
+.text-md      { font-size: $font-size-md; }
+.text-lg      { font-size: $font-size-lg; }
+.text-xl      { font-size: $font-size-xl; }
+.text-2xl     { font-size: $font-size-2xl; }
+.text-3xl     { font-size: $font-size-3xl; }
+.text-4xl     { font-size: $font-size-4xl; }
+
+// Pesos
+.font-regular  { font-weight: $font-weight-regular; }
+.font-medium   { font-weight: $font-weight-medium; }
+.font-semibold { font-weight: $font-weight-semibold; }
+.font-bold     { font-weight: $font-weight-bold; }
+
+// Alinhamento
+.text-left    { text-align: left; }
+.text-center  { text-align: center; }
+.text-right   { text-align: right; }
+.text-justify { text-align: justify; }
+
+// Transformação
+.uppercase    { text-transform: uppercase; letter-spacing: $letter-spacing-wider; }
+.lowercase    { text-transform: lowercase; }
+.capitalize   { text-transform: capitalize; }
+
+// Truncamento
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// -----------------------------------------------------------------------------
+// 12. Responsividade
+// -----------------------------------------------------------------------------
+@media (max-width: 768px) {
+  h1 { font-size: $font-size-3xl; }
+  h2 { font-size: $font-size-2xl; }
+  h3 { font-size: $font-size-xl;  }
+  h4 { font-size: $font-size-lg;  }
+  h5 { font-size: $font-size-md;  }
+  h6 { font-size: $font-size-base; }
+}
+
+@media (max-width: 480px) {
+  h1 { font-size: $font-size-2xl; }
+  h2 { font-size: $font-size-xl;  }
+  h3 { font-size: $font-size-lg;  }
+}

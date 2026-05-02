@@ -2,7 +2,13 @@
 
 import * as React from "react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+import {
+  CircleCheckIcon,
+  InfoIcon,
+  TriangleAlertIcon,
+  OctagonXIcon,
+  Loader2Icon,
+} from "lucide-react"
 import { useClientStore } from "@/lib/client-store"
 
 const Toaster = ({ ...props }: ToasterProps) => {
@@ -16,23 +22,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={(mounted ? theme : "light") as ToasterProps["theme"]}
-      className="toaster group"
+      className="toaster"
       icons={{
-        success: (
-          <CircleCheckIcon className="size-4" />
-        ),
-        info: (
-          <InfoIcon className="size-4" />
-        ),
-        warning: (
-          <TriangleAlertIcon className="size-4" />
-        ),
-        error: (
-          <OctagonXIcon className="size-4" />
-        ),
-        loading: (
-          <Loader2Icon className="size-4 animate-spin" />
-        ),
+        success: <CircleCheckIcon className="sonner-icon" />,
+        info: <InfoIcon className="sonner-icon" />,
+        warning: <TriangleAlertIcon className="sonner-icon" />,
+        error: <OctagonXIcon className="sonner-icon" />,
+        loading: <Loader2Icon className="sonner-icon u-animate-spin" />,
       }}
       style={
         {

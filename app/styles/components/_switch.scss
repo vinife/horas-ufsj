@@ -1,0 +1,92 @@
+// =============================================================================
+// Switch Component
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+@use "../abstract/functions" as *;
+
+[data-slot="switch"] {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  border-radius: $border-radius-full;
+  border: $border-width-sm solid transparent;
+  outline: none;
+  cursor: pointer;
+  transition: background-color $transition-fast;
+
+  &[data-state="checked"] {
+    background-color: var(--primary);
+  }
+
+  &[data-state="unchecked"] {
+    background-color: var(--input);
+  }
+
+  .dark &[data-state="unchecked"] {
+    background-color: color-mix(in oklch, var(--input) 80%, transparent);
+  }
+
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 $border-width-lg color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+
+  &[aria-invalid="true"] {
+    border-color: var(--destructive);
+    box-shadow: 0 0 0 $border-width-lg
+      color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+
+  &[data-size="default"] {
+    width: rem(32);
+    height: rem(18.4);
+  }
+
+  &[data-size="sm"] {
+    width: rem(24);
+    height: rem(14);
+  }
+
+  &[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+[data-slot="switch-thumb"] {
+  display: block;
+  border-radius: $border-radius-full;
+  background-color: var(--background);
+  pointer-events: none;
+  transition: transform $transition-fast;
+  box-shadow: none;
+}
+
+[data-slot="switch"][data-size="default"] [data-slot="switch-thumb"] {
+  width: $font-size-base;
+  height: $font-size-base;
+}
+
+[data-slot="switch"][data-size="sm"] [data-slot="switch-thumb"] {
+  width: $font-size-xs;
+  height: $font-size-xs;
+}
+
+.dark [data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"] {
+  background-color: var(--foreground);
+}
+
+.dark [data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] {
+  background-color: var(--primary-foreground);
+}
+
+[data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"] {
+  transform: translateX(0);
+}
+
+[data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] {
+  transform: translateX(calc(100% - $border-width-md));
+}

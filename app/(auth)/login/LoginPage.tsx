@@ -12,7 +12,7 @@ function GoogleIcon() {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="size-5 rounded-full bg-white p-0.5"
+      className="google-icon"
     >
       <path
         d="M21.8 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.5a4.8 4.8 0 0 1-2 3.1v2.6h3.3c1.9-1.7 3-4.3 3-7.5Z"
@@ -74,35 +74,35 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-background sm:flex sm:items-center sm:justify-center sm:p-6">
-      <Card className="flex min-h-dvh w-full flex-col justify-center rounded-none border-0 shadow-none sm:min-h-0 sm:max-w-md sm:rounded-3xl sm:border sm:shadow-sm">
+    <div className="page-login">
+      <Card className="page-login__card">
         <Card.Header>
-          <Card.Title className="text-center text-xl font-semibold tracking-tight">
+          <Card.Title className="page-login__title">
             Entrega de Certificado de Horas
           </Card.Title>
         </Card.Header>
 
-        <Card.Content className="space-y-4">
-          <div className="grid grid-cols-2 pb-6 pt-2">
+        <Card.Content className="page-login__content">
+          <div className="page-login__logos">
             <Image
               src="/Ccomp.png"
               alt="Logo"
               width={120}
               height={120}
-              className="mx-auto"
+              className="page-login__logo-img"
             />
             <Image
               src="/UFSJ.png"
               alt="Logo UFSJ"
               width={120}
               height={120}
-              className="mx-auto"
+              className="page-login__logo-img"
             />
           </div>
 
           <Button
             intent="primary"
-            className="w-full gap-2.5 p-5"
+            className="login-btn-full"
             onClick={loginWithGoogle}
           >
             <GoogleIcon />
@@ -111,7 +111,7 @@ export default function LoginPage() {
 
           <Button
             intent="secondary"
-            className="w-full gap-2.5 p-5"
+            className="login-btn-full"
             onClick={loginWithInstitutional}
           >
             <Image
@@ -119,7 +119,7 @@ export default function LoginPage() {
               alt=""
               width={20}
               height={20}
-              className="size-5  object-contain p-0.5"
+              className="sso-icon"
             />
             Entrar com SSO
           </Button>

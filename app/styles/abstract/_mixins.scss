@@ -1,0 +1,400 @@
+// =============================================================================
+// _mixins.scss
+// Mixins reutilizáveis para o projeto
+// =============================================================================
+
+@use 'variables' as *;
+@use "../base/typography" as *;
+
+// -----------------------------------------------------------------------------
+// 1. Breakpoints / Responsividade
+// -----------------------------------------------------------------------------
+
+/// Aplica estilos a partir de um breakpoint (mobile-first)
+/// @param {String} $bp - xs | sm | md | lg | xl | 2xl
+@mixin respond-from($bp) {
+  $breakpoints: (
+    'xs':  $bp-xs,
+    'sm':  $bp-sm,
+    'md':  $bp-md,
+    'lg':  $bp-lg,
+    'xl':  $bp-xl,
+    '2xl': $bp-2xl,
+  );
+
+  @if map-has-key($breakpoints, $bp) {
+    @media (min-width: map-get($breakpoints, $bp)) {
+      @content;
+    }
+  } @else {
+    @warn 'Breakpoint `#{$bp}` não encontrado. Use: xs, sm, md, lg, xl, 2xl.';
+  }
+}
+
+/// Aplica estilos até um breakpoint (desktop-first)
+/// @param {String} $bp - xs | sm | md | lg | xl | 2xl
+@mixin respond-until($bp) {
+  $breakpoints: (
+    'xs':  $bp-xs,
+    'sm':  $bp-sm,
+    'md':  $bp-md,
+    'lg':  $bp-lg,
+    'xl':  $bp-xl,
+    '2xl': $bp-2xl,
+  );
+
+  @if map-has-key($breakpoints, $bp) {
+    @media (max-width: calc(#{map-get($breakpoints, $bp)} - 1px)) {
+      @content;
+    }
+  } @else {
+    @warn 'Breakpoint `#{$bp}` não encontrado.';
+  }
+}
+
+/// Aplica estilos entre dois breakpoints
+@mixin respond-between($min, $max) {
+  @include respond-from($min) {
+    @include respond-until($max) {
+      @content;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 2. Flexbox
+// -----------------------------------------------------------------------------
+
+/// Flex container com atalhos
+/// @param {String} $direction  - row | column | row-reverse | column-reverse
+/// @param {String} $justify    - flex-start | center | flex-end | space-between | space-around | space-evenly
+/// @param {String} $align      - flex-start | center | flex-end | stretch | baseline
+/// @param {String} $wrap       - nowrap | wrap | wrap-reverse
+@mixin flex(
+  $direction: row,
+  $justify:   flex-start,
+  $align:     stretch,
+  $wrap:      nowrap
+) {
+  display: flex;
+  flex-direction: $direction;
+  justify-content: $justify;
+  align-items: $align;
+  flex-wrap: $wrap;
+}
+
+/// Centraliza filhos com flex
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/// Flex coluna centralizada
+@mixin flex-column-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/// Flex com espaço entre os filhos e alinhamento vertical centrado
+@mixin flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+// -----------------------------------------------------------------------------
+// 3. Grid
+// -----------------------------------------------------------------------------
+
+/// Grid responsivo com colunas automáticas
+/// @param {Length} $min-col - largura mínima de cada coluna
+/// @param {Length} $gap     - espaço entre colunas e linhas
+@mixin grid-auto($min-col: 280px, $gap: $space-6) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax($min-col, 1fr));
+  gap: $gap;
+}
+
+/// Grid de colunas fixas
+/// @param {Number} $cols - quantidade de colunas
+/// @param {Length} $gap  - espaço entre células
+@mixin grid-cols($cols: 12, $gap: $space-6) {
+  display: grid;
+  grid-template-columns: repeat($cols, 1fr);
+  gap: $gap;
+}
+
+// -----------------------------------------------------------------------------
+// 4. Posicionamento
+// -----------------------------------------------------------------------------
+
+/// Posicionamento absoluto com todos os lados zerados (overlay)
+@mixin absolute-fill {
+  position: absolute;
+  inset: 0;
+}
+
+/// Centraliza um elemento com position absolute
+@mixin absolute-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/// Sticky com z-index configurável
+@mixin sticky($top: 0, $z: $z-sticky) {
+  position: sticky;
+  top: $top;
+  z-index: $z;
+}
+
+// -----------------------------------------------------------------------------
+// 5. Tipografia
+// -----------------------------------------------------------------------------
+
+/// Define fonte, tamanho, peso e line-height de uma vez
+@mixin font($size: $font-size-base, $weight: $font-weight-regular, $line-height: $line-height-normal) {
+  font-size: $size;
+  font-weight: $weight;
+  line-height: $line-height;
+}
+
+/// Estilo de heading com tamanho e peso
+@mixin heading($size: $font-size-2xl, $weight: $font-weight-bold) {
+  font-family: $font-primary;
+  font-size: $size;
+  font-weight: $weight;
+  line-height: $line-height-tight;
+  letter-spacing: $letter-spacing-tight;
+}
+
+/// Trunca texto em uma linha com ellipsis
+@mixin truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/// Limita texto a N linhas com ellipsis
+/// @param {Number} $lines - número de linhas visíveis
+@mixin line-clamp($lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// -----------------------------------------------------------------------------
+// 6. Visual / Aparência
+// -----------------------------------------------------------------------------
+
+/// Bordas arredondadas com valor padrão
+@mixin rounded($radius: $border-radius-md) {
+  border-radius: $radius;
+}
+
+/// Sombra de elevação
+/// @param {String} $level - sm | md | lg | xl | 2xl
+@mixin shadow($level: 'md') {
+  $shadows: (
+    'sm':  $shadow-sm,
+    'md':  $shadow-md,
+    'lg':  $shadow-lg,
+    'xl':  $shadow-xl,
+    '2xl': $shadow-2xl,
+  );
+
+  @if map-has-key($shadows, $level) {
+    box-shadow: map-get($shadows, $level);
+  } @else {
+    @warn 'Nível de sombra `#{$level}` inválido. Use: sm, md, lg, xl, 2xl.';
+  }
+}
+
+/// Gradiente linear simples
+/// @param {Angle}  $angle - direção do gradiente
+/// @param {Color}  $from  - cor inicial
+/// @param {Color}  $to    - cor final
+@mixin gradient($angle: 135deg, $from: $color-red-400, $to: $color-red-600) {
+  background: linear-gradient($angle, $from, $to);
+}
+
+/// Overlay semitransparente sobre um elemento com background-image
+/// @param {Color}  $color   - cor do overlay
+/// @param {Number} $opacity - opacidade de 0 a 1
+@mixin overlay($color: $color-black, $opacity: 0.5) {
+  position: relative;
+
+  &::after {
+    content: '';
+    @include absolute-fill;
+    background-color: $color;
+    opacity: $opacity;
+    pointer-events: none;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 7. Interatividade
+// -----------------------------------------------------------------------------
+
+/// Transição suave para propriedades comuns
+/// @param {List}   $properties - propriedades a transicionar
+/// @param {Time}   $duration   - duração
+/// @param {String} $easing     - função de easing
+@mixin transition($properties: all, $duration: $transition-normal, $easing: ease) {
+  transition-property: $properties;
+  transition-duration: $duration;
+  transition-timing-function: $easing;
+}
+
+/// Estado hover com opacity reduzida
+@mixin hover-fade($opacity: 0.75) {
+  transition: opacity $transition-fast;
+
+  &:hover {
+    opacity: $opacity;
+  }
+}
+
+/// Escala no hover
+@mixin hover-scale($scale: 1.03) {
+  transition: transform $transition-normal;
+
+  &:hover {
+    transform: scale($scale);
+  }
+}
+
+/// Foco acessível com outline visível
+@mixin focus-ring($color: $color-border-focus, $offset: 2px) {
+  &:focus-visible {
+    outline: 2px solid $color;
+    outline-offset: $offset;
+    border-radius: $border-radius-sm;
+  }
+}
+
+/// Remove estilo padrão de botão
+@mixin button-reset {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  line-height: inherit;
+}
+
+// -----------------------------------------------------------------------------
+// 8. Layout
+// -----------------------------------------------------------------------------
+
+/// Container centralizado com largura máxima
+/// @param {Length} $max-width - largura máxima
+/// @param {Length} $padding-x - padding horizontal
+@mixin container($max-width: $bp-xl, $padding-x: $space-6) {
+  width: 100%;
+  max-width: $max-width;
+  margin-inline: auto;
+  padding-inline: $padding-x;
+}
+
+/// Aspect ratio fixo
+/// @param {Number} $width  - largura proporcional
+/// @param {Number} $height - altura proporcional
+@mixin aspect-ratio($width: 16, $height: 9) {
+  aspect-ratio: #{$width} / #{$height};
+}
+
+/// Scroll suave com scroll snap
+@mixin scroll-snap($direction: x, $type: mandatory) {
+  overflow-#{$direction}: auto;
+  scroll-snap-type: $direction $type;
+  -webkit-overflow-scrolling: touch;
+
+  & > * {
+    scroll-snap-align: start;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 9. Acessibilidade
+// -----------------------------------------------------------------------------
+
+/// Esconde visualmente mas mantém acessível para leitores de tela
+@mixin sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/// Reverte sr-only (torna visível novamente)
+@mixin not-sr-only {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/// Aplica estilos apenas quando movimento não é reduzido
+@mixin motion-safe {
+  @media (prefers-reduced-motion: no-preference) {
+    @content;
+  }
+}
+
+/// Aplica estilos quando movimento é reduzido
+@mixin motion-reduce {
+  @media (prefers-reduced-motion: reduce) {
+    @content;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 10. Utilitários de Debug
+// -----------------------------------------------------------------------------
+
+/// Destaca elemento com borda colorida (útil durante desenvolvimento)
+/// @param {Color} $color - cor da borda de debug
+@mixin debug($color: red) {
+  outline: 2px solid $color !important;
+  background-color: rgba($color, 0.05) !important;
+}
+
+/// Adiciona grade de debug ao container
+@mixin debug-grid($cols: 12, $gap: $space-6) {
+  position: relative;
+
+  &::before {
+    content: '';
+    @include absolute-fill;
+    @include grid-cols($cols, $gap);
+    pointer-events: none;
+    z-index: $z-tooltip;
+
+    background-image: repeating-linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.05),
+      rgba(255, 0, 0, 0.05) calc(100% / #{$cols} - #{$gap}),
+      transparent calc(100% / #{$cols} - #{$gap}),
+      transparent calc(100% / #{$cols})
+    );
+  }
+}

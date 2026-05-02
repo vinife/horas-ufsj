@@ -1,0 +1,150 @@
+// =============================================================================
+// _theme.scss — tokens (:root / .dark) e reset base
+// Carregado antes de main.scss em globals.scss
+// =============================================================================
+
+@use "./abstract/variables" as *;
+
+:root {
+  --radius: #{$border-radius-md};
+
+  --background: #{$color-bg};
+  --foreground: #{$color-text-primary};
+
+  --card: #{$color-bg};
+  --card-foreground: #{$color-text-primary};
+
+  --popover: #{$color-bg};
+  --popover-foreground: #{$color-text-primary};
+
+  --primary: #{$color-primary};
+  --primary-foreground: #{$color-text-inverse};
+
+  --secondary: #{$color-bg-subtle};
+  --secondary-foreground: #{$color-text-primary};
+
+  --muted: #{$color-bg-muted};
+  --muted-foreground: #{$color-text-muted};
+
+  --accent: #{$color-primary-muted};
+  --accent-foreground: #{$color-primary-active};
+
+  --destructive: #{$color-error-500};
+  --destructive-foreground: #{$color-text-inverse};
+
+  --border: #{$color-border};
+  --input: #{$color-border};
+  --ring: #{$color-border-focus};
+
+  --chart-1: #{$color-primary};
+  --chart-2: #{$color-primary-hover};
+  --chart-3: #{$color-neutral};
+  --chart-4: #{$color-warning-500};
+  --chart-5: #{$color-border-focus};
+
+  --sidebar: #{$color-bg-subtle};
+  --sidebar-foreground: #{$color-text-primary};
+
+  --sidebar-primary: #{$color-primary};
+  --sidebar-primary-foreground: #{$color-text-inverse};
+
+  --sidebar-accent: #{$color-primary-subtle};
+  --sidebar-accent-foreground: #{$color-text-primary};
+
+  --sidebar-border: #{$color-border};
+  --sidebar-ring: #{$color-border-focus};
+
+  --status-pending: #{$color-warning-soft};
+  --status-pending-foreground: #{$color-warning-500};
+
+  --status-approved: #{$color-neutral-muted};
+  --status-approved-foreground: #{$color-neutral-hover};
+
+  --status-denied: #{$color-error-500};
+  --status-denied-foreground: #{$color-text-inverse};
+
+  --radius-sm: #{$border-radius-sm};
+  --radius-md: #{$border-radius-md};
+  --radius-lg: #{$border-radius-lg};
+  --radius-xl: #{$border-radius-xl};
+  --radius-2xl: #{$border-radius-2xl};
+  --radius-3xl: #{$border-radius-2xl};
+  --radius-4xl: #{$border-radius-full};
+
+  --shadow-sm: #{$shadow-sm};
+  --shadow-lg: #{$shadow-lg};
+}
+
+.dark {
+  --radius: #{$border-radius-md};
+
+  --background: #{$color-brown-950};
+  --foreground: #{$color-brown-50};
+
+  --card: #{$color-brown-900};
+  --card-foreground: #{$color-brown-50};
+
+  --popover: #{$color-brown-900};
+  --popover-foreground: #{$color-brown-50};
+
+  --primary: #{$color-brown-300};
+  --primary-foreground: #{$color-brown-950};
+
+  --secondary: #{$color-brown-800};
+  --secondary-foreground: #{$color-brown-50};
+
+  --muted: #{$color-brown-800};
+  --muted-foreground: #{$color-brown-300};
+
+  --accent: #{$color-brown-700};
+  --accent-foreground: #{$color-brown-50};
+
+  --destructive: #{$color-red-300};
+  --destructive-foreground: #{$color-brown-950};
+
+  --border: color-mix(in oklch, #{$color-white} 10%, transparent);
+  --input: color-mix(in oklch, #{$color-white} 15%, transparent);
+  --ring: #{$color-red-300};
+
+  --chart-1: #{$color-red-300};
+  --chart-2: #{$color-brown-300};
+  --chart-3: #{$color-brown-400};
+  --chart-4: #{$color-warning-500};
+  --chart-5: #{$color-red-200};
+
+  --sidebar: #{$color-brown-900};
+  --sidebar-foreground: #{$color-brown-50};
+
+  --sidebar-primary: #{$color-red-300};
+  --sidebar-primary-foreground: #{$color-brown-950};
+
+  --sidebar-accent: #{$color-brown-800};
+  --sidebar-accent-foreground: #{$color-brown-50};
+
+  --sidebar-border: color-mix(in oklch, #{$color-white} 10%, transparent);
+  --sidebar-ring: #{$color-red-300};
+
+  --status-pending: #{$color-warning-500};
+  --status-pending-foreground: #{$color-brown-950};
+
+  --status-approved: #{$color-brown-300};
+  --status-approved-foreground: #{$color-brown-950};
+
+  --status-denied: #{$color-red-300};
+  --status-denied-foreground: #{$color-brown-950};
+}
+
+*,
+*::before,
+*::after {
+  border-color: var(--border);
+  outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
+}
+
+body {
+  margin: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

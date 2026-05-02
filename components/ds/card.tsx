@@ -18,25 +18,16 @@ export function Card({
   className,
   ...props
 }: DSCardProps) {
-  const paddingStyles = {
-    sm: "p-4",
-    md: "p-6",
-    lg: "p-8",
-  }
-
   return (
     <UICard
-      className={cn(
-        "border-border shadow-sm",
-        paddingStyles[padding],
-        className
-      )}
+      data-ds-card
+      data-padding={padding}
+      className={cn(className)}
       {...props}
     />
   )
 }
 
-// Reexporta subcomponentes para manter API
 Card.Header = CardHeader
 Card.Title = CardTitle
 Card.Description = CardDescription

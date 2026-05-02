@@ -1,0 +1,101 @@
+// =============================================================================
+// Tabs Component
+// =============================================================================
+
+@use "../abstract/variables" as *;
+@use "../base/typography" as *;
+
+[data-slot="tabs"] {
+  display: flex;
+  gap: $space-2;
+
+  &[data-orientation="vertical"] {
+    flex-direction: column;
+  }
+}
+
+[data-slot="tabs-list"] {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-4xl);
+  padding: calc($space-1 - $border-width-sm);
+  color: var(--muted-foreground);
+
+  &[data-variant="default"] {
+    background-color: var(--muted);
+  }
+
+  &[data-variant="line"] {
+    gap: $space-1;
+    background: transparent;
+    border-radius: 0;
+  }
+}
+
+[data-slot="tabs-trigger"] {
+  position: relative;
+  display: inline-flex;
+  height: calc(100% - #{$border-width-sm});
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: calc($space-1 + calc($space-1 / 2));
+  white-space: nowrap;
+  border-radius: var(--radius-xl);
+  border: $border-width-sm solid transparent;
+  padding: $space-1 $space-2;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: color-mix(in oklch, var(--foreground) 60%, transparent);
+  outline: none;
+  cursor: pointer;
+  background: transparent;
+  transition:
+    color $transition-fast,
+    background-color $transition-fast;
+
+  &:hover {
+    color: var(--foreground);
+  }
+
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 $border-width-lg color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+
+  &:disabled {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  &[data-state="active"] {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  .dark &[data-state="active"] {
+    border-color: var(--input);
+    background-color: color-mix(in oklch, var(--input) 30%, transparent);
+  }
+
+  svg {
+    width: $font-size-base;
+    height: $font-size-base;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+}
+
+[data-slot="tabs"][data-orientation="vertical"] [data-slot="tabs-trigger"] {
+  width: 100%;
+  justify-content: flex-start;
+  padding: calc($space-1 + calc($space-1 / 2)) calc($space-2 + calc($space-1 / 2));
+}
+
+[data-slot="tabs-content"] {
+  flex: 1;
+  font-size: $font-size-sm;
+  outline: none;
+}
