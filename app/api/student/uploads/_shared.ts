@@ -72,6 +72,14 @@ function getErrorStatus(error: unknown) {
   return null;
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Erro desconhecido.";
+}
+
 function getDriveFileIdFromUrl(fileUrl: string) {
   try {
     const url = new URL(fileUrl);
@@ -94,22 +102,37 @@ async function removeFileFromDrive(
   drive: ReturnType<typeof google.drive>,
   fileId: string,
 ) {
-  try {
-    await drive.files.delete({
-      fileId,
-      supportsAllDrives: true,
-    });
+  const file = await drive.files.get({
+    fileId,
+    supportsAllDrives: true,
+    fields: "id, trashed, capabilities(canDelete, canTrash)",
+  });
+
+  if (file.data.trashed) {
     return;
-  } catch (error) {
-    const status = getErrorStatus(error);
+  }
 
-    if (status === 404) {
+  const canDelete = file.data.capabilities?.canDelete === true;
+  const canTrash = file.data.capabilities?.canTrash === true;
+
+  if (canDelete) {
+    try {
+      await drive.files.delete({
+        fileId,
+        supportsAllDrives: true,
+      });
       return;
+    } catch (error) {
+      if (!canTrash) {
+        throw error;
+      }
     }
+  }
 
-    if (status !== 403) {
-      throw error;
-    }
+  if (!canTrash) {
+    throw new Error(
+      "A conta de servico consegue acessar o arquivo, mas nao tem permissao para excluir nem mover para a lixeira no Google Drive.",
+    );
   }
 
   try {
@@ -123,7 +146,9 @@ async function removeFileFromDrive(
     const status = getErrorStatus(error);
 
     if (status === 404) {
-      return;
+      throw new Error(
+        "Arquivo nao encontrado no Google Drive para mover para a lixeira. Verifique as permissoes da conta de servico.",
+      );
     }
 
     throw new Error(
@@ -488,12 +513,26 @@ export function createUploadHandlers(uploadType: UploadType) {
     }
 
     const driveFileId =
-      getDriveFileIdFromUrl(certificate.fileUrl) ?? certificate.fileId;
+      certificate.fileId || getDriveFileIdFromUrl(certificate.fileUrl);
 
-    if (driveFileId) {
+    if (!driveFileId) {
+      return NextResponse.json(
+        { error: "Arquivo sem ID do Google Drive salvo no banco." },
+        { status: 500 },
+      );
+    }
+
+    try {
       const drive = await getDriveClient();
 
       await removeFileFromDrive(drive, driveFileId);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: `Nao foi possivel remover o arquivo do Google Drive: ${getErrorMessage(error)}`,
+        },
+        { status: 500 },
+      );
     }
 
     await db.certificate.delete({

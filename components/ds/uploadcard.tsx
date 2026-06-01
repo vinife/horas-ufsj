@@ -132,7 +132,14 @@ export function UploadCard({
             }
           }
           xhr.onerror = () => {
-            resolve({ ok: false, error: "Falha de conexão ao enviar arquivo." })
+            const error =
+              xhr.status === 0
+                ? "Nao foi possivel ler o arquivo para envio. Tente selecionar o arquivo pelo botao ou mova-o para uma pasta local antes de enviar."
+                : "Falha de conexão ao enviar arquivo."
+            resolve({ ok: false, error })
+          }
+          xhr.onabort = () => {
+            resolve({ ok: false, error: "Envio cancelado antes da conclusao." })
           }
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
@@ -152,7 +159,15 @@ export function UploadCard({
             }
           }
 
-          xhr.send(formData)
+          try {
+            xhr.send(formData)
+          } catch {
+            resolve({
+              ok: false,
+              error:
+                "Nao foi possivel ler o arquivo para envio. Tente selecionar o arquivo pelo botao ou mova-o para uma pasta local antes de enviar.",
+            })
+          }
         },
       )
 

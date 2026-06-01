@@ -12,6 +12,7 @@ import {
 } from "react";
 import {
   Accept,
+  type DropEvent,
   FileRejection,
   useDropzone as rootUseDropzone,
 } from "react-dropzone";
@@ -190,6 +191,59 @@ const getRootError = (
   const joinedErrors = errors.join(", ");
   return joinedErrors.charAt(0).toUpperCase() + joinedErrors.slice(1);
 };
+
+async function getFilesFromDropzoneEvent(event: DropEvent) {
+  if (Array.isArray(event)) {
+    const files = await Promise.all(event.map((handle) => handle.getFile()));
+    return files;
+  }
+
+  if ("dataTransfer" in event && event.dataTransfer) {
+    const { dataTransfer } = event;
+
+    if (event.type === "drop") {
+      const files = Array.from(dataTransfer.files ?? []);
+
+      if (files.length > 0) {
+        return files;
+      }
+    }
+
+    if (dataTransfer.items) {
+      const items = Array.from(dataTransfer.items).filter(
+        (item) => item.kind === "file",
+      );
+
+      if (event.type !== "drop") {
+        return items;
+      }
+
+      const files = items
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null);
+      return files;
+    }
+
+    return Array.from(dataTransfer.files ?? []);
+  }
+
+  const target = "target" in event ? event.target : null;
+  if (target instanceof HTMLInputElement && target.files) {
+    return Array.from(target.files);
+  }
+
+  return [];
+}
+
+function getDropzoneEventErrorMessage(error: unknown) {
+  if (error instanceof DOMException && error.name === "NotFoundError") {
+    return "Nao foi possivel acessar o arquivo arrastado. Verifique se ele ainda existe no disco ou selecione o arquivo pelo botao.";
+  }
+
+  return error instanceof Error
+    ? error.message
+    : "Nao foi possivel acessar o arquivo selecionado.";
+}
 
 type DropFileContext = {
   setProgress: (progress: number) => void;
@@ -372,6 +426,10 @@ const useDropzone = <TUploadRes, TUploadError = string>(
     accept: validation?.accept,
     minSize: validation?.minSize,
     maxSize: validation?.maxSize,
+    getFilesFromEvent: getFilesFromDropzoneEvent,
+    onError: (error) => {
+      setRootError(getDropzoneEventErrorMessage(error));
+    },
     onDropAccepted: async (newFiles) => {
       setRootError(undefined);
 
