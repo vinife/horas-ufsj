@@ -74,7 +74,7 @@ export async function GET(
           email,
           name: profile.name ?? undefined,
           role: "ADMIN",
-          accessStatus: "PENDING",
+          accessStatus: "APPROVED",
         },
       });
     } else if (userType === "STUDENT") {
