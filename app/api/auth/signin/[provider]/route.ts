@@ -1,11 +1,20 @@
-import { NextResponse } from "next/server";
 import { getAuthStrategy } from "@/lib/auth/auth-factory";
+import { authProviderSchema } from "@/lib/schemas/auth.schema";
+import { NextResponse } from "next/server";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ provider: string }> },
 ) {
   const { provider } = await params;
+  const parseResult = authProviderSchema.safeParse(provider);
+  if (!parseResult.success) {
+    return NextResponse.json(
+      { error: "Provedor de autenticação inválido." },
+      { status: 400 },
+    );
+  }
+
   const strategy = getAuthStrategy(provider);
   const { url, cookies } = await strategy.getLoginUrl();
   const res = NextResponse.redirect(url);

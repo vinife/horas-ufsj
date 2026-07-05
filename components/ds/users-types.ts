@@ -8,7 +8,11 @@ export type ManagedUser = {
   role: ManagedRole;
   accessStatus: ManagedAccessStatus;
   createdAt: string;
-  isMasterAdmin: boolean;
+  permissions: {
+    canManageComplementar: boolean;
+    canManageExtensao: boolean;
+    canManageUsers: boolean;
+  };
 };
 
 export type UsersResponse = {

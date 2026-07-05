@@ -30,8 +30,15 @@ enum Status {
   REJECTED
 }
 
+enum AiStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 enum CertificateType {
-  EXTENSÃO
+  EXTENSAO
   COMPLEMENTAR
 }
 
@@ -45,27 +52,46 @@ model User {
   reviewedAt    DateTime?   
   createdAt     DateTime  @default(now())
 
+  // --- PERMISSÕES GRANULARES (Válidas quando role == ADMIN) ---
+  canManageComplementar Boolean @default(false)
+  canManageExtensao     Boolean @default(false)
+  canManageUsers        Boolean @default(false) // Pode gerir aprovações/permissões de usuários
+
   // Relacionamento: Um aluno tem vários certificados
   certificados  Certificate[]
 }
 
 model Certificate {
-  id            String   @id @default(cuid())
-  title         String   // Ex: "Curso de Python"
-  hours         Int?      // Quantidade de horas solicitadas
-  certificatetype          CertificateType     @default(COMPLEMENTAR)
+  id              String          @id @default(cuid())
+  
+  
+  // --- DADOS OFICIAIS (O que vale para o aluno no final) ---
+  title           String
+  hours           Int?
+  certificatetype CertificateType @default(COMPLEMENTAR)
+  status          Status          @default(PENDING)
+  feedback        String?
 
-  // Dados do Google Drive
-  fileUrl       String   // O link para ver o arquivo
-  fileId        String   // O ID do Google Drive (para deletar depois se precisar)
+  // --- DADOS DO ARQUIVO ---
+  fileUrl         String   
+  fileId          String   
 
-  status        Status   @default(PENDING)
-  feedback      String?  // Motivo do indeferimento (escrito pelo admin)
+  // --- INTERVENÇÃO DA IA (Totalmente Isolada) ---
+  aiStatus        AiStatus        @default(QUEUED)
+  aiSuggestedTitle String?
+  aiSuggestedHours Int?
+  aiFeedback      Json?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   // Conexão com o Aluno
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SystemConfig {
+  id              String   @id @default("current_config")
+  tunedTextModel  String?  // Ex: "tunedModels/gemini-ufsj-texto-v1"
+  updatedAt       DateTime @updatedAt
 }

@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import type { AdminPermissions } from "@/lib/auth/permissions";
 import { getRedis } from "@/lib/redis";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -10,7 +11,7 @@ export type SessionPayload = {
   name?: string;
   provider: "google" | "institucional";
   role: "student" | "admin";
-  isMasterAdmin?: boolean;
+  permissions?: AdminPermissions;
 };
 
 function sessionKey(sessionId: string) {

@@ -1,24 +1,27 @@
-"use client"
+"use client";
 
-import { create } from "zustand"
+import type { AdminPermissions } from "@/lib/auth/permissions";
+import { create } from "zustand";
 
-type AuthStatus = "loading" | "authed" | "guest"
+type AuthStatus = "loading" | "authed" | "guest";
 
 export type AuthUser = {
-  id: string
-  name?: string
-  email?: string
-  role: "student" | "admin"
-  isMasterAdmin?: boolean
-}
+  id: string;
+  name?: string;
+  email?: string;
+  role: "student" | "admin";
+  permissions: AdminPermissions;
+  hasAnyAdminPermission: boolean;
+  responsibleEmails: string[];
+};
 
 type AuthState = {
-  status: AuthStatus
-  user: AuthUser | null
-  setUser: (user: AuthUser | null) => void
-  setStatus: (status: AuthStatus) => void
-  logout: () => void
-}
+  status: AuthStatus;
+  user: AuthUser | null;
+  setUser: (user: AuthUser | null) => void;
+  setStatus: (status: AuthStatus) => void;
+  logout: () => void;
+};
 
 export const useAuthStore = create<AuthState>()((set) => ({
   status: "loading",
@@ -26,4 +29,4 @@ export const useAuthStore = create<AuthState>()((set) => ({
   setUser: (user) => set({ user, status: user ? "authed" : "guest" }),
   setStatus: (status) => set({ status }),
   logout: () => set({ user: null, status: "guest" }),
-}))
+}));

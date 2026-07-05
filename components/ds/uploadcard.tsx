@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { UploadInput } from "@/components/ds/uploadinput"
+import { uploadAccept, MAX_UPLOAD_SIZE_BYTES } from "@/lib/schemas/upload.schema"
 import { cn } from "@/lib/utils"
 
 type FileStatus = "PENDENTE" | "APROVADO" | "REJEITADO"
@@ -215,6 +216,8 @@ export function UploadCard({
       <Card.Content className="space-y-6">
         <UploadInput
           multiple
+          accept={uploadAccept}
+          maxSize={MAX_UPLOAD_SIZE_BYTES}
           uploadFile={uploadSingleFile}
           onChange={(files) => onUpload?.(files)}
         />
@@ -237,7 +240,7 @@ export function UploadCard({
                     file.status === "APROVADO" || deletingId === file.id
                   return (
                     <TableRow key={file.id}>
-                      <TableCell className="max-w-[240px] truncate">
+                      <TableCell className="max-w-60 truncate">
                         <a
                           href={file.fileUrl}
                           target="_blank"

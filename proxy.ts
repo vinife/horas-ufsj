@@ -1,8 +1,7 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { getSession, updateSession } from "@/lib/session";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-const adminRoutes = ["/admin"];
 const protectedRoutes = ["/student", "/admin"];
 const publicRoutes = ["/login"];
 

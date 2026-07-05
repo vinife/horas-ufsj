@@ -1,16 +1,22 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { parseAsInteger, parseAsString, useQueryState } from "nuqs"
-import { Search } from "lucide-react"
-import { Card } from "@/components/ds/card"
-import { notify } from "@/components/ds/notification"
-import { PaginationControls, useAutoPageSize } from "@/components/ds/table-pagination"
-import { UnapprovedUserRow } from "@/components/ds/unapproved-user-row"
-import { ApprovedUserRow } from "@/components/ds/approved-user-row"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import * as React from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import { ArrowUpDown, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { Card } from "@/components/ds/card";
+import { notify } from "@/components/ds/notification";
+import {
+  PaginationControls,
+  useAutoPageSize,
+} from "@/components/ds/table-pagination";
+import { TableLoadingSkeleton } from "@/components/ds/table-loading-skeleton";
+import { UnapprovedUserRow } from "@/components/ds/unapproved-user-row";
+import { UserDialog } from "@/components/ds/userdialog";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ds/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Table,
   TableBody,
@@ -18,32 +24,66 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { cn } from "@/lib/utils"
-import { ManagedAccessStatus, ManagedRole, UsersResponse } from "./users-types"
-
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import { ManagedAccessStatus, ManagedRole, UsersResponse } from "./users-types";
+import type { UpdateUserStatusInput } from "@/lib/schemas/user.schema";
 
 type UsersCardProps = {
-  title: string
-  className?: string
+  title: string;
+  className?: string;
+};
+
+type RoleFilter = "all" | "admin" | "student";
+type SortBy = "name" | "email" | "role" | "createdAt";
+type SortDir = "asc" | "desc";
+
+function normalizeRoleFilter(value: string): RoleFilter {
+  if (value === "admin" || value === "student" || value === "all") {
+    return value;
+  }
+  return "all";
+}
+
+function normalizeSortBy(value: string): SortBy {
+  if (
+    value === "name" ||
+    value === "email" ||
+    value === "role" ||
+    value === "createdAt"
+  ) {
+    return value;
+  }
+  return "createdAt";
+}
+
+function normalizeSortDir(value: string): SortDir {
+  return value === "asc" ? "asc" : "desc";
 }
 
 async function fetchUsers(
   query: string,
   page: number,
   pageSize: number,
+  roleFilter: RoleFilter,
 ): Promise<UsersResponse> {
-  const url = new URL("/api/admin/users", window.location.origin)
+  const url = new URL("/api/admin/users", window.location.origin);
   if (query.trim()) {
-    url.searchParams.set("q", query.trim())
+    url.searchParams.set("q", query.trim());
   }
-  url.searchParams.set("page", String(page))
-  url.searchParams.set("pageSize", String(pageSize))
+  if (roleFilter === "admin") {
+    url.searchParams.set("role", "ADMIN");
+  }
+  if (roleFilter === "student") {
+    url.searchParams.set("role", "STUDENT");
+  }
+  url.searchParams.set("page", String(page));
+  url.searchParams.set("pageSize", String(pageSize));
 
-  const res = await fetch(url.toString(), { credentials: "include" })
-  if (!res.ok) throw new Error("Failed to fetch users")
+  const res = await fetch(url.toString(), { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch users");
 
-  const payload = (await res.json()) as Partial<UsersResponse>
+  const payload = (await res.json()) as Partial<UsersResponse>;
   return {
     users: payload.users ?? [],
     canManage: payload.canManage ?? false,
@@ -53,140 +93,284 @@ async function fetchUsers(
       currentPage: 1,
       pageSize,
     },
-  }
+  };
 }
 
 function formatDate(input: string) {
-  const date = new Date(input)
-  if (Number.isNaN(date.getTime())) return "-"
-  return date.toLocaleDateString("pt-BR")
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("pt-BR");
 }
 
 export function UsersCard({ title, className }: UsersCardProps) {
-  const [pageSize, setPageSize] = React.useState(10)
-  const tableViewportRef = React.useRef<HTMLDivElement>(null!)
-  const queryClient = useQueryClient()
+  const [pageSize, setPageSize] = React.useState(10);
+  const tableViewportRef = React.useRef<HTMLDivElement>(null!);
+  const queryClient = useQueryClient();
   const [searchValue, setSearchValue] = useQueryState(
     "users_q",
     parseAsString.withDefault(""),
-  )
+  );
   const [currentPage, setCurrentPage] = useQueryState(
     "users_page",
     parseAsInteger.withDefault(1),
-  )
-  const [draftSearchValue, setDraftSearchValue] = React.useState(searchValue)
+  );
+  const [roleFilterParam, setRoleFilterParam] = useQueryState(
+    "users_role",
+    parseAsString.withDefault("all"),
+  );
+  const [sortByParam, setSortByParam] = useQueryState(
+    "users_sort_by",
+    parseAsString.withDefault("createdAt"),
+  );
+  const [sortDirParam, setSortDirParam] = useQueryState(
+    "users_sort_dir",
+    parseAsString.withDefault("desc"),
+  );
+  const [draftSearchValue, setDraftSearchValue] = React.useState(searchValue);
   const [actionInFlightUserId, setActionInFlightUserId] = React.useState<
     string | null
-  >(null)
-  const [activeActionRowId, setActiveActionRowId] = React.useState<string | null>(
-    null,
-  )
-  const hasShownLoadErrorRef = React.useRef(false)
+  >(null);
+  const [activeActionRowId, setActiveActionRowId] = React.useState<
+    string | null
+  >(null);
+  const [selectedUser, setSelectedUser] = React.useState<
+    UsersResponse["users"][number] | null
+  >(null);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [isSavingDialog, setIsSavingDialog] = React.useState(false);
+  const hasShownLoadErrorRef = React.useRef(false);
+  const roleFilter = normalizeRoleFilter(roleFilterParam);
+  const sortBy = normalizeSortBy(sortByParam);
+  const sortDir = normalizeSortDir(sortDirParam);
 
   React.useEffect(() => {
-    setDraftSearchValue(searchValue)
-  }, [searchValue])
+    setDraftSearchValue(searchValue);
+  }, [searchValue]);
 
   const queryKey = React.useMemo(
-    () => ["admin-users", searchValue.trim(), currentPage, pageSize],
-    [searchValue, currentPage, pageSize],
-  )
+    () => [
+      "admin-users",
+      searchValue.trim(),
+      currentPage,
+      pageSize,
+      roleFilter,
+    ],
+    [searchValue, currentPage, pageSize, roleFilter],
+  );
 
-  const {
-    data,
-    isLoading,
-    isError,
-  } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey,
-    queryFn: () => fetchUsers(searchValue, currentPage, pageSize),
-  })
+    queryFn: () => fetchUsers(searchValue, currentPage, pageSize, roleFilter),
+  });
 
-  const users = React.useMemo(() => data?.users ?? [], [data?.users])
-  const canManage = data?.canManage ?? false
-  const meta = data?.meta
-  const totalPages = Math.max(1, meta?.totalPages ?? 1)
+  const users = React.useMemo(() => data?.users ?? [], [data?.users]);
+  const canManage = data?.canManage ?? false;
+  const meta = data?.meta;
+  const totalPages = Math.max(1, meta?.totalPages ?? 1);
   const orderedUsers = React.useMemo(() => {
-    if (users.length <= 1) return users
-    const pending = users.filter((user) => user.accessStatus === "PENDING")
-    const others = users.filter((user) => user.accessStatus !== "PENDING")
-    return [...pending, ...others]
-  }, [users])
+    if (users.length <= 1) return users;
+
+    const direction = sortDir === "asc" ? 1 : -1;
+
+    return [...users].sort((a, b) => {
+      if (sortBy === "createdAt") {
+        return (
+          (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) *
+          direction
+        );
+      }
+
+      if (sortBy === "role") {
+        const roleCompare = a.role.localeCompare(b.role, "pt-BR");
+        if (roleCompare !== 0) return roleCompare * direction;
+      }
+
+      if (sortBy === "name") {
+        const nameCompare = (a.name ?? "").localeCompare(b.name ?? "", "pt-BR");
+        if (nameCompare !== 0) return nameCompare * direction;
+      }
+
+      if (sortBy === "email") {
+        const emailCompare = a.email.localeCompare(b.email, "pt-BR");
+        if (emailCompare !== 0) return emailCompare * direction;
+      }
+
+      return a.email.localeCompare(b.email, "pt-BR") * direction;
+    });
+  }, [users, sortBy, sortDir]);
 
   useAutoPageSize({
     tableViewportRef,
     setPageSize,
-    dependencies: [users.length, isLoading, searchValue, currentPage, canManage],
-  })
+    dependencies: [
+      users.length,
+      isLoading,
+      searchValue,
+      currentPage,
+      canManage,
+      roleFilter,
+    ],
+  });
+
+  const handleSort = (key: SortBy) => {
+    if (sortBy === key) {
+      setSortDirParam(sortDir === "asc" ? "desc" : "asc", {
+        history: "replace",
+      });
+      return;
+    }
+
+    setSortByParam(key, { history: "replace" });
+    setSortDirParam(key === "createdAt" ? "desc" : "asc", {
+      history: "replace",
+    });
+  };
+
+  const SortHeader = ({
+    label,
+    field,
+    alignRight,
+  }: {
+    label: string;
+    field: SortBy;
+    alignRight?: boolean;
+  }) => {
+    const active = sortBy === field;
+
+    return (
+      <button
+        type="button"
+        className={cn(
+          "inline-flex items-center gap-1 tracking-wide text-muted-foreground transition-colors hover:text-foreground",
+          alignRight && "ml-auto",
+        )}
+        onClick={() => handleSort(field)}
+      >
+        <span>{label}</span>
+        {active &&
+          (sortDir === "asc" ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ))}
+      </button>
+    );
+  };
 
   React.useEffect(() => {
     if (!isError) {
-      hasShownLoadErrorRef.current = false
-      return
+      hasShownLoadErrorRef.current = false;
+      return;
     }
 
-    if (hasShownLoadErrorRef.current) return
+    if (hasShownLoadErrorRef.current) return;
     notify.error(
       "Falha ao carregar usuários",
       "Não foi possível carregar a lista de usuários.",
-    )
-    hasShownLoadErrorRef.current = true
-  }, [isError])
+    );
+    hasShownLoadErrorRef.current = true;
+  }, [isError]);
 
   const handleAccessStatusChange = async (
     userId: string,
     status: ManagedAccessStatus,
     role: ManagedRole,
   ) => {
-    setActionInFlightUserId(userId)
+    setActionInFlightUserId(userId);
     try {
+      const payload: UpdateUserStatusInput = {
+        userId,
+        status,
+        role,
+      };
+
       const res = await fetch("/api/admin/users", {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          status,
-          role,
-        }),
-      })
+        body: JSON.stringify(payload),
+      });
 
       if (!res.ok) {
-        const payload = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(payload.error ?? "Não foi possível atualizar a solicitação.")
+        const payload = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(
+          payload.error ?? "Não foi possível atualizar a solicitação.",
+        );
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["admin-users"] })
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       notify.success(
         status === "APPROVED" ? "Usuário aprovado" : "Usuário rejeitado",
         status === "APPROVED"
           ? "A solicitação foi atualizada com sucesso."
           : "A solicitação foi negada com sucesso.",
-      )
+      );
     } catch (error) {
       notify.error(
         "Falha ao atualizar solicitação",
         error instanceof Error
           ? error.message
           : "Não foi possível atualizar a solicitação.",
-      )
+      );
     } finally {
-      setActionInFlightUserId(null)
+      setActionInFlightUserId(null);
     }
-  }
+  };
+
+  const handleDialogSave = async (
+    payload: UpdateUserStatusInput & {
+      canManageComplementar?: boolean;
+      canManageExtensao?: boolean;
+      canManageUsers?: boolean;
+    },
+  ) => {
+    setIsSavingDialog(true);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const responsePayload = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(responsePayload.error ?? "Não foi possível salvar.");
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setDialogOpen(false);
+      setSelectedUser(null);
+      notify.success("Usuário atualizado", "As alterações foram salvas.");
+    } catch (error) {
+      notify.error(
+        "Falha ao salvar alterações",
+        error instanceof Error ? error.message : "Não foi possível salvar.",
+      );
+    } finally {
+      setIsSavingDialog(false);
+    }
+  };
 
   return (
     <Card className={cn("flex h-full min-h-0 flex-col", className)}>
       <Card.Header className="justify-center">
-        <Card.Title className="text-2xl font-bold">{title}</Card.Title>
+        <Card.Title className="text-xl sm:text-2xl text-center font-bold">
+          {title}
+        </Card.Title>
       </Card.Header>
 
       <Card.Content className="flex min-h-0 flex-1 flex-col gap-5">
         <form
           className="relative mx-auto w-full sm:max-w-sm -mt-6"
           onSubmit={(event) => {
-            event.preventDefault()
-            setSearchValue(draftSearchValue, { history: "replace" })
-            setCurrentPage(1, { history: "replace" })
+            event.preventDefault();
+            setSearchValue(draftSearchValue, { history: "replace" });
+            setCurrentPage(1, { history: "replace" });
           }}
         >
           <Input
@@ -204,9 +388,29 @@ export function UsersCard({ title, className }: UsersCardProps) {
           </button>
         </form>
 
-        {isLoading ? (
-          <div className="text-sm text-muted-foreground">Carregando usuários...</div>
-        ) : null}
+        <RadioGroup
+          value={roleFilter}
+          onValueChange={(value) => {
+            const normalized = normalizeRoleFilter(value);
+            setRoleFilterParam(normalized, { history: "replace" });
+            setCurrentPage(1, { history: "replace" });
+          }}
+          className="mx-auto -mt-3 grid w-full max-w-sm grid-cols-3 gap-2"
+        >
+          <label className="flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm">
+            <RadioGroupItem value="admin" />
+            Admins
+          </label>
+          <label className="flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm">
+            <RadioGroupItem value="student" />
+            Alunos
+          </label>
+          <label className="flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm">
+            <RadioGroupItem value="all" />
+            Todos
+          </label>
+        </RadioGroup>
+
         {isError ? (
           <div className="text-sm text-muted-foreground">
             Tente novamente em instantes.
@@ -214,17 +418,27 @@ export function UsersCard({ title, className }: UsersCardProps) {
         ) : null}
 
         <div ref={tableViewportRef} className="min-h-0 flex-1 overflow-y-auto">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Perfil</TableHead>
-                <TableHead className="text-right">Cadastro</TableHead>
+                <TableHead className="w-[45%]">
+                  <SortHeader label="Nome" field="name" />
+                </TableHead>
+                <TableHead className="w-[45%]">
+                  <SortHeader label="Email" field="email" />
+                </TableHead>
+                <TableHead className="w-[45%]">
+                  <SortHeader label="Perfil" field="role" />
+                </TableHead>
+                <TableHead className="w-[45%] text-right">
+                  <SortHeader label="Cadastro" field="createdAt" alignRight />
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!isLoading && !isError && users.length === 0 ? (
+              {isLoading ? (
+                <TableLoadingSkeleton rows={6} columns={4} />
+              ) : !isError && users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-muted-foreground">
                     Nenhum usuário encontrado.
@@ -232,8 +446,8 @@ export function UsersCard({ title, className }: UsersCardProps) {
                 </TableRow>
               ) : (
                 orderedUsers.map((user) => {
-                  const isPending = user.accessStatus === "PENDING"
-                  const isActionActive = activeActionRowId === user.id
+                  const isPending = user.accessStatus === "PENDING";
+                  const isActionActive = activeActionRowId === user.id;
 
                   return (
                     <TableRow
@@ -248,8 +462,10 @@ export function UsersCard({ title, className }: UsersCardProps) {
                       data-active={isActionActive ? "true" : "false"}
                       tabIndex={canManage && isPending ? 0 : -1}
                       onClick={() => {
-                        if (!canManage || !isPending) return
-                        setActiveActionRowId((prev) => (prev === user.id ? null : user.id))
+                        if (!canManage || !isPending) return;
+                        setActiveActionRowId((prev) =>
+                          prev === user.id ? null : user.id,
+                        );
                       }}
                     >
                       <TableCell className="max-w-60 ">
@@ -264,36 +480,62 @@ export function UsersCard({ title, className }: UsersCardProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Badge variant={user.role === "ADMIN" ? "approved" : "pending"}>
+                          <Badge
+                            variant={
+                              user.role === "ADMIN" ? "approved" : "pending"
+                            }
+                          >
                             {user.role === "ADMIN" ? "Funcionário" : "Aluno"}
                           </Badge>
-                          {user.isMasterAdmin ? (
-                            <Badge variant="outline">Master</Badge>
+                          {user.role === "ADMIN" &&
+                          user.permissions.canManageUsers ? (
+                            <Badge variant="outline">Gestor usuários</Badge>
+                          ) : null}
+                          {user.accessStatus === "REJECTED" ? (
+                            <Badge variant="denied">Bloqueado</Badge>
                           ) : null}
                         </div>
                       </TableCell>
                       <TableCell className="relative text-right text-sm text-muted-foreground">
                         {user.accessStatus === "PENDING" ? (
-                          <>
-                            {formatDate(user.createdAt)}
-                            <UnapprovedUserRow
-                              user={user}
-                              isActionActive={isActionActive}
-                              actionInFlightUserId={actionInFlightUserId}
-                              canManage={canManage}
-                              onChangeStatus={handleAccessStatusChange}
-                            />
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-black/50 flex items-center justify-center">
-                              Overlay content
+                          <div className="relative flex h-full items-center justify-end">
+                            <span className="transition-opacity duration-200 group-hover:opacity-0 group-data-[active=true]:opacity-0">
+                              {formatDate(user.createdAt)}
+                            </span>
+                            <div
+                              className={cn(
+                                "absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200",
+                                "group-hover:opacity-100 group-data-[active=true]:opacity-100",
+                              )}
+                            >
+                              <UnapprovedUserRow
+                                user={user}
+                                actionInFlightUserId={actionInFlightUserId}
+                                onChangeStatus={handleAccessStatusChange}
+                              />
                             </div>
-                          </>
-
+                          </div>
                         ) : (
-                          <ApprovedUserRow user={user} />
+                          <div className="inline-flex items-center gap-3">
+                            <span>{formatDate(user.createdAt)}</span>
+                            {canManage ? (
+                              <Button
+                                type="button"
+                                intent="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setDialogOpen(true);
+                                }}
+                              >
+                                Gerenciar
+                              </Button>
+                            ) : null}
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
-                  )
+                  );
                 })
               )}
             </TableBody>
@@ -306,7 +548,18 @@ export function UsersCard({ title, className }: UsersCardProps) {
           isLoading={isLoading}
           onPageChange={(page) => setCurrentPage(page, { history: "replace" })}
         />
+
+        <UserDialog
+          open={dialogOpen}
+          onOpenChange={(nextOpen) => {
+            setDialogOpen(nextOpen);
+            if (!nextOpen) setSelectedUser(null);
+          }}
+          user={selectedUser}
+          isSaving={isSavingDialog}
+          onSave={handleDialogSave}
+        />
       </Card.Content>
     </Card>
-  )
+  );
 }

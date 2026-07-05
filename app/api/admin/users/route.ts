@@ -1,33 +1,21 @@
 import {
   isInstitutionalEmail,
-  isMasterAdminEmail,
   normalizeEmail,
 } from "@/lib/auth/access-control";
+import { toAdminPermissions } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
+import {
+  createUserSchema,
+  updateUserStatusSchema,
+  userListQuerySchema,
+} from "@/lib/schemas/user.schema";
 import { getSession } from "@/lib/session";
+import {
+  validateJsonRequest,
+  validateQueryParams,
+} from "@/lib/validators/validate-request";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-
-type ManagedRole = "STUDENT" | "ADMIN";
-type ManagedAccessStatus = "PENDING" | "APPROVED" | "REJECTED";
-
-function parseManagedRole(value: string | null | undefined): ManagedRole {
-  return value === "ADMIN" ? "ADMIN" : "STUDENT";
-}
-
-function parseRoleFilter(value: string | null | undefined): ManagedRole | null {
-  if (value === "ADMIN" || value === "STUDENT") return value;
-  return null;
-}
-
-function parseManagedAccessStatus(
-  value: string | null | undefined,
-): ManagedAccessStatus | null {
-  if (value === "PENDING" || value === "APPROVED" || value === "REJECTED") {
-    return value;
-  }
-  return null;
-}
 
 async function getAdminContext(request: NextRequest) {
   const sessionId = request.cookies.get("session")?.value;
@@ -44,37 +32,62 @@ async function getAdminContext(request: NextRequest) {
     };
   }
 
-  const canManage =
-    Boolean(session.isMasterAdmin) || isMasterAdminEmail(session.email);
+  const adminUser = await db.user.findUnique({
+    where: { id: session.sub },
+    select: {
+      id: true,
+      role: true,
+      accessStatus: true,
+      canManageUsers: true,
+    },
+  });
 
-  return { session, canManage };
+  if (!adminUser || adminUser.role !== "ADMIN") {
+    return {
+      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  if (adminUser.accessStatus !== "APPROVED") {
+    return {
+      error: NextResponse.json(
+        { error: "Conta sem aprovação." },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return { session, adminUser, canManage: Boolean(adminUser.canManageUsers) };
 }
 
 export async function GET(request: NextRequest) {
   const context = await getAdminContext(request);
   if ("error" in context) return context.error;
+  if (!context.canManage) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
-  const searchParams = request.nextUrl.searchParams;
-  const roleFilter = parseRoleFilter(searchParams.get("role"));
-  const accessStatusFilter = parseManagedAccessStatus(
-    searchParams.get("accessStatus"),
+  const query = validateQueryParams(
+    request.nextUrl.searchParams,
+    userListQuerySchema,
   );
-  const query = searchParams.get("q")?.trim() ?? "";
-  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-  const pageSize = Math.max(
-    1,
-    parseInt(searchParams.get("pageSize") ?? "10", 10),
-  );
+  if (query instanceof Response) return query;
+
+  const roleFilter = query.role;
+  const accessStatusFilter = query.accessStatus;
+  const search = query.q.trim();
+  const page = query.page;
+  const pageSize = query.pageSize;
   const skip = (page - 1) * pageSize;
 
   const where = {
     ...(roleFilter ? { role: roleFilter } : {}),
     ...(accessStatusFilter ? { accessStatus: accessStatusFilter } : {}),
-    ...(query
+    ...(search
       ? {
           OR: [
-            { name: { contains: query, mode: "insensitive" as const } },
-            { email: { contains: query, mode: "insensitive" as const } },
+            { name: { contains: search, mode: "insensitive" as const } },
+            { email: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),
@@ -93,6 +106,9 @@ export async function GET(request: NextRequest) {
         role: true,
         accessStatus: true,
         createdAt: true,
+        canManageComplementar: true,
+        canManageExtensao: true,
+        canManageUsers: true,
       },
     }),
     db.user.count({ where }),
@@ -108,7 +124,7 @@ export async function GET(request: NextRequest) {
         role: user.role,
         accessStatus: user.accessStatus,
         createdAt: user.createdAt,
-        isMasterAdmin: isMasterAdminEmail(user.email),
+        permissions: toAdminPermissions(user),
       })),
       meta: {
         totalItems: totalCount,
@@ -130,14 +146,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => null)) as {
-    email?: string;
-    role?: string;
-    name?: string;
-  } | null;
-  if (!body?.email) {
-    return NextResponse.json({ error: "Email obrigatório" }, { status: 400 });
-  }
+  const bodyOrResponse = await validateJsonRequest(request, createUserSchema);
+  if (bodyOrResponse instanceof Response) return bodyOrResponse;
+  const body = bodyOrResponse;
 
   const email = normalizeEmail(body.email);
   if (!isInstitutionalEmail(email)) {
@@ -147,21 +158,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const role = parseManagedRole(body.role);
-  if (isMasterAdminEmail(email) && role !== "ADMIN") {
-    return NextResponse.json(
-      { error: "Conta master admin deve permanecer como ADMIN." },
-      { status: 400 },
-    );
-  }
+  const role = body.role ?? "STUDENT";
 
   const cleanName = body.name?.trim() || null;
+  const defaultPermissions = {
+    canManageComplementar: false,
+    canManageExtensao: false,
+    canManageUsers: false,
+  };
   const user = await db.user.upsert({
     where: { email },
     update: {
       role,
       accessStatus: "APPROVED",
       reviewedAt: new Date(),
+      ...defaultPermissions,
       ...(cleanName ? { name: cleanName } : {}),
     },
     create: {
@@ -169,6 +180,7 @@ export async function POST(request: NextRequest) {
       role,
       accessStatus: "APPROVED",
       reviewedAt: new Date(),
+      ...defaultPermissions,
       ...(cleanName ? { name: cleanName } : {}),
     },
     select: {
@@ -178,6 +190,9 @@ export async function POST(request: NextRequest) {
       role: true,
       accessStatus: true,
       createdAt: true,
+      canManageComplementar: true,
+      canManageExtensao: true,
+      canManageUsers: true,
     },
   });
 
@@ -185,7 +200,7 @@ export async function POST(request: NextRequest) {
     {
       user: {
         ...user,
-        isMasterAdmin: isMasterAdminEmail(user.email),
+        permissions: toAdminPermissions(user),
       },
     },
     { status: 200 },
@@ -199,25 +214,25 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => null)) as {
-    userId?: string;
-    status?: string;
-    role?: string;
-    reason?: string;
-  } | null;
+  const bodyOrResponse = await validateJsonRequest(
+    request,
+    updateUserStatusSchema,
+  );
+  if (bodyOrResponse instanceof Response) return bodyOrResponse;
+  const body = bodyOrResponse;
 
-  if (!body?.userId) {
-    return NextResponse.json({ error: "userId obrigatório" }, { status: 400 });
-  }
-
-  const status = parseManagedAccessStatus(body.status);
-  if (!status) {
-    return NextResponse.json({ error: "status inválido" }, { status: 400 });
-  }
+  const status = body.status;
 
   const existingUser = await db.user.findUnique({
     where: { id: body.userId },
-    select: { id: true, email: true, role: true },
+    select: {
+      id: true,
+      role: true,
+      accessStatus: true,
+      canManageComplementar: true,
+      canManageExtensao: true,
+      canManageUsers: true,
+    },
   });
 
   if (!existingUser) {
@@ -227,22 +242,59 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  if (isMasterAdminEmail(existingUser.email) && status !== "APPROVED") {
-    return NextResponse.json(
-      { error: "Conta master admin não pode ser negada." },
-      { status: 400 },
-    );
+  const role = body.role ?? existingUser.role;
+  const isApproving = status === "APPROVED";
+  const nextPermissions =
+    role === "ADMIN"
+      ? {
+          canManageComplementar:
+            body.canManageComplementar ?? existingUser.canManageComplementar,
+          canManageExtensao:
+            body.canManageExtensao ?? existingUser.canManageExtensao,
+          canManageUsers: body.canManageUsers ?? existingUser.canManageUsers,
+        }
+      : {
+          canManageComplementar: false,
+          canManageExtensao: false,
+          canManageUsers: false,
+        };
+
+  const willKeepManageUsers =
+    role === "ADMIN" && isApproving && nextPermissions.canManageUsers;
+
+  if (
+    existingUser.role === "ADMIN" &&
+    existingUser.accessStatus === "APPROVED" &&
+    existingUser.canManageUsers &&
+    !willKeepManageUsers
+  ) {
+    const otherManagersCount = await db.user.count({
+      where: {
+        id: { not: existingUser.id },
+        role: "ADMIN",
+        accessStatus: "APPROVED",
+        canManageUsers: true,
+      },
+    });
+
+    if (otherManagersCount === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "É necessário manter ao menos um administrador com acesso ao controle de usuários.",
+        },
+        { status: 400 },
+      );
+    }
   }
 
-  const role = parseManagedRole(body.role);
   const user = await db.user.update({
     where: { id: existingUser.id },
     data: {
       accessStatus: status,
       reviewedAt: new Date(),
-      ...(status === "APPROVED"
-        ? { role: isMasterAdminEmail(existingUser.email) ? "ADMIN" : role }
-        : {}),
+      role,
+      ...nextPermissions,
     },
     select: {
       id: true,
@@ -251,6 +303,9 @@ export async function PATCH(request: NextRequest) {
       role: true,
       accessStatus: true,
       createdAt: true,
+      canManageComplementar: true,
+      canManageExtensao: true,
+      canManageUsers: true,
     },
   });
 
@@ -258,7 +313,7 @@ export async function PATCH(request: NextRequest) {
     {
       user: {
         ...user,
-        isMasterAdmin: isMasterAdminEmail(user.email),
+        permissions: toAdminPermissions(user),
       },
     },
     { status: 200 },

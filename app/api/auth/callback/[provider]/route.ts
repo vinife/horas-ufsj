@@ -1,11 +1,15 @@
 import {
   getUserTypeFromEmail,
   isInstitutionalEmail,
-  isMasterAdminEmail,
   normalizeEmail,
 } from "@/lib/auth/access-control";
 import { getAuthStrategy } from "@/lib/auth/auth-factory";
+import {
+  EMPTY_ADMIN_PERMISSIONS,
+  toAdminPermissions,
+} from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
+import { authProviderSchema } from "@/lib/schemas/auth.schema";
 import { createSession } from "@/lib/session";
 import { NextResponse } from "next/server";
 
@@ -29,6 +33,14 @@ export async function GET(
   { params }: { params: Promise<{ provider: string }> },
 ) {
   const { provider } = await params;
+  const parseResult = authProviderSchema.safeParse(provider);
+  if (!parseResult.success) {
+    return NextResponse.json(
+      { error: "Provedor de autenticação inválido." },
+      { status: 400 },
+    );
+  }
+
   const strategy = getAuthStrategy(provider);
   const profile = await strategy.validateCallback(req);
 
@@ -53,12 +65,18 @@ export async function GET(
     return res;
   }
 
-  const isMasterAdmin = isMasterAdminEmail(email);
   let user = await db.user.findUnique({ where: { email } });
   const userType = getUserTypeFromEmail(email);
+  const hasApprovedAdmins =
+    userType === "ADMIN"
+      ? (await db.user.count({
+          where: { role: "ADMIN", accessStatus: "APPROVED" },
+        })) > 0
+      : true;
+  const shouldBootstrapFirstAdmin = userType === "ADMIN" && !hasApprovedAdmins;
 
   if (!user) {
-    if (isMasterAdmin) {
+    if (shouldBootstrapFirstAdmin) {
       user = await db.user.create({
         data: {
           email,
@@ -66,6 +84,9 @@ export async function GET(
           role: "ADMIN",
           accessStatus: "APPROVED",
           reviewedAt: new Date(),
+          canManageComplementar: true,
+          canManageExtensao: true,
+          canManageUsers: true,
         },
       });
     } else if (userType === "ADMIN") {
@@ -75,6 +96,9 @@ export async function GET(
           name: profile.name ?? undefined,
           role: "ADMIN",
           accessStatus: "PENDING",
+          canManageComplementar: false,
+          canManageExtensao: false,
+          canManageUsers: false,
         },
       });
     } else if (userType === "STUDENT") {
@@ -113,17 +137,6 @@ export async function GET(
         return res;
       }
     }
-  } else if (isMasterAdmin) {
-    user = await db.user.update({
-      where: { id: user.id },
-      data: {
-        name: profile.name ?? user.name ?? undefined,
-        role: "ADMIN",
-        accessStatus: "APPROVED",
-        reviewedAt:
-          user.accessStatus === "APPROVED" ? user.reviewedAt : new Date(),
-      },
-    });
   } else if (user.accessStatus !== "APPROVED") {
     await db.user.update({
       where: { id: user.id },
@@ -154,6 +167,21 @@ export async function GET(
   }
 
   const role = user.role === "ADMIN" ? "admin" : "student";
+  const permissionRecord =
+    role === "admin"
+      ? await db.user.findUnique({
+          where: { id: user.id },
+          select: {
+            canManageComplementar: true,
+            canManageExtensao: true,
+            canManageUsers: true,
+          },
+        })
+      : null;
+  const permissions =
+    role === "admin" && permissionRecord
+      ? toAdminPermissions(permissionRecord)
+      : EMPTY_ADMIN_PERMISSIONS;
 
   const session = await createSession({
     sub: user.id,
@@ -161,7 +189,7 @@ export async function GET(
     name: profile.name,
     provider: profile.provider,
     role,
-    isMasterAdmin,
+    permissions,
   });
 
   const redirectPath = role === "admin" ? "/admin" : "/student";

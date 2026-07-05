@@ -1,0 +1,48 @@
+services:
+  # O app Next.js rodando no servidor
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ufsj_web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://ufsj_user:ufsj_password@postgres:5432/horas_ufsj_db?schema=public
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  # Banco de Dados PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: ufsj_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ufsj_user
+      POSTGRES_PASSWORD: ufsj_password
+      POSTGRES_DB: horas_ufsj_db
+    ports:
+      - "5432:5432" # Expõe para você acessar do seu PC se precisar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis estritamente local/interno
+  redis:
+    image: redis:7-alpine
+    container_name: ufsj_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    # REMOVEMOS as portas daqui para que NINGUÉM de fora do servidor acesse o Redis
+    # expose:
+    #   - "6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

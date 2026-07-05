@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { notify } from "@/components/ds/notification"
-import { useSearchParams } from "next/navigation"
-import { Card } from "@/components/ds/card"
-import { Button } from "@/components/ds/button"
-import Image from "next/image"
+import * as React from "react";
+import { notify } from "@/components/ds/notification";
+import { useSearchParams } from "next/navigation";
+import { Card } from "@/components/ds/card";
+import { Button } from "@/components/ds/button";
+import Image from "next/image";
 
 function GoogleIcon() {
   return (
@@ -31,46 +31,46 @@ function GoogleIcon() {
         fill="#EA4335"
       />
     </svg>
-  )
+  );
 }
 
 export default function LoginPage() {
-  const searchParams = useSearchParams()
-  const errorCode = searchParams.get("error")
-  const shownErrorRef = React.useRef<string | null>(null)
+  const searchParams = useSearchParams();
+  const errorCode = searchParams.get("error");
+  const shownErrorRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    if (!errorCode || shownErrorRef.current === errorCode) return
+    if (!errorCode || shownErrorRef.current === errorCode) return;
 
     if (errorCode === "pending-approval") {
       notify.warning(
         "Conta em análise",
         "Sua conta institucional está em análise para aprovação. Volte mais tarde.",
-      )
+      );
     } else if (errorCode === "access-rejected") {
       notify.error(
         "Acesso negado",
-        "Seu acesso foi negado. Entre em contato com um administrador master.",
-      )
+        "Seu acesso foi negado. Entre em contato com um responsável pelo controle de usuários.",
+      );
     } else if (
       errorCode === "unauthorized" ||
       errorCode === "unauthorized-domain"
     ) {
       notify.error(
         "Conta não autorizada",
-        "Solicite liberação para um administrador master.",
-      )
+        "Solicite liberação para um responsável pelo controle de usuários.",
+      );
     }
 
-    shownErrorRef.current = errorCode
-  }, [errorCode])
+    shownErrorRef.current = errorCode;
+  }, [errorCode]);
 
   function loginWithGoogle() {
-    window.location.href = "/api/auth/signin/google"
+    window.location.href = "/api/auth/signin/google";
   }
 
   function loginWithInstitutional() {
-    window.location.href = "/api/auth/signin/institucional"
+    window.location.href = "/api/auth/signin/institucional";
   }
 
   return (
@@ -126,5 +126,5 @@ export default function LoginPage() {
         </Card.Content>
       </Card>
     </div>
-  )
+  );
 }

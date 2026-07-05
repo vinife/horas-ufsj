@@ -1,5 +1,13 @@
 import { db } from "@/lib/db";
+import { enqueueCertificate } from "@/lib/queue";
+import {
+  deleteUploadQuerySchema,
+  uploadFormDataSchema,
+  uploadSearchQuerySchema,
+} from "@/lib/schemas/upload.schema";
 import { getSession } from "@/lib/session";
+import { validateFormData } from "@/lib/validators/validate-form-data";
+import { validateQueryParams } from "@/lib/validators/validate-request";
 import type { CertificateType, Prisma } from "@prisma/client";
 import { google } from "googleapis";
 import type { NextRequest } from "next/server";
@@ -19,7 +27,7 @@ const HOURS_LIMIT_STRATEGY: LimitStrategy =
 
 function toCertificateType(uploadType: UploadType) {
   return (
-    uploadType === "extensao" ? "EXTENSÃO" : "COMPLEMENTAR"
+    uploadType === "extensao" ? "EXTENSAO" : "COMPLEMENTAR"
   ) satisfies CertificateType;
 }
 
@@ -291,7 +299,13 @@ export function createUploadHandlers(uploadType: UploadType) {
       return NextResponse.json({ files: [] }, { status: 403 });
     }
 
-    const search = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+    const query = validateQueryParams(
+      request.nextUrl.searchParams,
+      uploadSearchQuerySchema,
+    );
+    if (query instanceof Response) return query;
+
+    const search = query.q.trim();
 
     const where: Prisma.CertificateWhereInput = {
       certificatetype: toCertificateType(uploadType),
@@ -335,19 +349,18 @@ export function createUploadHandlers(uploadType: UploadType) {
     }
 
     const form = await request.formData();
-    const file = form.get("file");
-    const rawTitle = String(form.get("title") ?? "").trim();
-    const rawHours = form.get("hours");
-
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Missing file" }, { status: 400 });
+    const validationResult = validateFormData(form, uploadFormDataSchema);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: validationResult.error, issues: validationResult.issues },
+        { status: 422 },
+      );
     }
 
-    const title = rawTitle || file.name.replace(/\.[^.]+$/, "");
-    const hours =
-      rawHours === null || String(rawHours).trim() === ""
-        ? 1
-        : Number(rawHours);
+    const parsed = validationResult.data;
+    const file = parsed.file;
+    const title = parsed.title?.trim() || file.name.replace(/\.[^.]+$/, "");
+    const hours = parsed.hours ?? 1;
 
     if (!title) {
       return NextResponse.json({ error: "Missing title" }, { status: 400 });
@@ -439,6 +452,26 @@ export function createUploadHandlers(uploadType: UploadType) {
       fields: "id, webViewLink",
     });
 
+    if (uploaded.data.id) {
+      try {
+        await drive.permissions.create({
+          fileId: uploaded.data.id,
+          supportsAllDrives: true, // Crucial para Shared Drives institucionais da UFSJ
+          requestBody: {
+            role: "reader", // Papel de visualizador (leitor)
+            type: "anyone", // Qualquer pessoa com o link
+          },
+        });
+      } catch (permError) {
+        // Captura o erro isoladamente para que o upload principal não quebre
+        // caso as políticas centrais da UFSJ bloqueiem links públicos
+        console.error(
+          "[Drive Permission Error]: Falha ao tornar o link público. Verifique as políticas do Workspace UFSJ.",
+          permError,
+        );
+      }
+    }
+
     const created = await db.certificate.create({
       data: {
         title,
@@ -460,6 +493,23 @@ export function createUploadHandlers(uploadType: UploadType) {
       },
     });
 
+    const enfileiradoComSucesso = await enqueueCertificate(created.id);
+
+    // Se o Redis falhar por problemas de infraestrutura, atualiza o banco com o alerta técnico
+    if (!enfileiradoComSucesso) {
+      console.error(
+        `[Queue Error] Falha ao enfileirar ID ${created.id}. Atualizando banco.`,
+      );
+      await db.certificate.update({
+        where: { id: created.id },
+        data: {
+          aiStatus: "FAILED",
+          aiFeedback:
+            "Erro temporário no servidor de mensageria. A análise automática foi abortada.",
+        },
+      });
+    }
+
     return NextResponse.json({ file: created }, { status: 201 });
   }
 
@@ -477,10 +527,13 @@ export function createUploadHandlers(uploadType: UploadType) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const certificateId = request.nextUrl.searchParams.get("id")?.trim();
-    if (!certificateId) {
-      return NextResponse.json({ error: "Missing id" }, { status: 400 });
-    }
+    const query = validateQueryParams(
+      request.nextUrl.searchParams,
+      deleteUploadQuerySchema,
+    );
+    if (query instanceof Response) return query;
+
+    const certificateId = query.id;
 
     const deleteWhere: Prisma.CertificateWhereInput = {
       id: certificateId,

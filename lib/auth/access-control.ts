@@ -14,23 +14,6 @@ export function isInstitutionalEmail(email: string) {
   return domain in DOMAIN_ROLE_MAP;
 }
 
-export function getMasterAdminEmails() {
-  const raw = process.env.MASTER_ADMIN_EMAILS ?? "";
-  if (!raw.trim()) return new Set<string>();
-
-  return new Set(
-    raw
-      .split(",")
-      .map((value) => normalizeEmail(value))
-      .filter(Boolean),
-  );
-}
-
-export function isMasterAdminEmail(email?: string | null) {
-  if (!email) return false;
-  return getMasterAdminEmails().has(normalizeEmail(email));
-}
-
 export function getUserTypeFromEmail(email: string) {
   const normalized = normalizeEmail(email);
   const domain = normalized.split("@")[1];
