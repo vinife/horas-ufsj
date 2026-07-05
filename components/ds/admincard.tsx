@@ -1,18 +1,23 @@
 "use client";
 
 import * as React from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
-import { Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { Card } from "@/components/ds/card";
+import { DeadlineIndicator } from "@/components/ds/deadline-indicator";
 import { AdminDialog, type StudentReview } from "@/components/ds/admindialog";
 import { notify } from "@/components/ds/notification";
+import { StatusBadge } from "@/components/ds/status-badge";
 import {
   PaginationControls,
   useAutoPageSize,
 } from "@/components/ds/table-pagination";
 import { TableLoadingSkeleton } from "@/components/ds/table-loading-skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -25,21 +30,9 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
-type FileStatus =
-  | "PENDENTE"
-  | "APROVADO"
-  | "REJEITADO"
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED";
-
-type DisplayFileStatus = "PENDENTE" | "APROVADO" | "REJEITADO";
 type SortBy = "deadline" | "name" | "email";
 type SortDir = "asc" | "desc";
 type StatusFilter = "pending" | "reviewed" | "all";
-
-const CERTIFICATE_REVIEW_DEADLINE_DAYS = 15;
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 type DeadlineInfo = {
   deadlineDate: string;
@@ -51,25 +44,8 @@ type StudentDeadline =
   | ({ hasPending: true } & DeadlineInfo)
   | { hasPending: false };
 
-export type UploadedFile = {
-  id: string;
-  title: string;
-  description?: string | null;
-  hours: number;
-  status: FileStatus;
-  fileUrl: string;
-  createdAt: string;
-  deadline?: DeadlineInfo | null;
-  aiStatus?: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | null;
-  aiSuggestedTitle?: string | null;
-  aiSuggestedHours?: number | null;
-  aiFeedback?: unknown;
-  userName?: string | null;
-  userEmail?: string | null;
-};
-
 type StudentReviewRow = StudentReview & {
-  status: DisplayFileStatus;
+  status: "PENDENTE" | "APROVADO" | "REJEITADO";
   deadline: StudentDeadline;
 };
 
@@ -77,7 +53,6 @@ type AdminCardProps = {
   title?: string;
   endpoint?: string;
   className?: string;
-  files?: UploadedFile[];
   onApprove?: (id: string) => void | Promise<void>;
   onReject?: (id: string) => void | Promise<void>;
 };
@@ -130,13 +105,6 @@ async function fetchFiles(
   };
 }
 
-function normalizeStatus(status: FileStatus): DisplayFileStatus {
-  if (status === "APPROVED") return "APROVADO";
-  if (status === "REJECTED") return "REJEITADO";
-  if (status === "PENDING") return "PENDENTE";
-  return status;
-}
-
 function toSortBy(value: string): SortBy {
   if (value === "name" || value === "email" || value === "deadline") {
     return value;
@@ -155,59 +123,10 @@ function toStatusFilter(value: string): StatusFilter {
   return "all";
 }
 
-function compareStrings(a: string | null, b: string | null, dir: SortDir) {
-  const comparison = (a ?? "").localeCompare(b ?? "", "pt-BR", {
-    sensitivity: "base",
-  });
-  return dir === "asc" ? comparison : -comparison;
-}
-
-function compareByDeadline(
-  a: StudentReviewRow,
-  b: StudentReviewRow,
-  dir: SortDir,
-) {
-  if (a.deadline.hasPending !== b.deadline.hasPending) {
-    return a.deadline.hasPending ? -1 : 1;
-  }
-
-  if (a.deadline.hasPending && b.deadline.hasPending) {
-    const comparison =
-      new Date(a.deadline.deadlineDate).getTime() -
-      new Date(b.deadline.deadlineDate).getTime();
-    if (comparison !== 0) {
-      return dir === "asc" ? comparison : -comparison;
-    }
-  }
-
-  const nameComparison = compareStrings(a.name, b.name, dir);
-  if (nameComparison !== 0) {
-    return nameComparison;
-  }
-
-  return compareStrings(a.email, b.email, dir);
-}
-
-function calculateDeadline(createdAt: string | Date): DeadlineInfo {
-  const createdAtMs = new Date(createdAt).getTime();
-  const nowMs = Date.now();
-  const elapsedDays = Math.floor((nowMs - createdAtMs) / DAY_IN_MS);
-  const daysRemaining = CERTIFICATE_REVIEW_DEADLINE_DAYS - elapsedDays;
-
-  return {
-    deadlineDate: new Date(
-      createdAtMs + CERTIFICATE_REVIEW_DEADLINE_DAYS * DAY_IN_MS,
-    ).toISOString(),
-    daysRemaining,
-    isOverdue: daysRemaining < 0,
-  };
-}
-
 export function AdminCard({
   title = "Comprovantes enviados",
   endpoint = "/api/admin/uploads",
   className,
-  files: initialFiles,
   onApprove,
   onReject,
 }: AdminCardProps) {
@@ -220,23 +139,23 @@ export function AdminCard({
     null,
   ) as React.RefObject<HTMLDivElement>;
   const [searchValue, setSearchValue] = useQueryState(
-    "q",
+    "admin_q",
     parseAsString.withDefault(""),
   );
   const [currentPage, setCurrentPage] = useQueryState(
-    "page",
+    "admin_page",
     parseAsInteger.withDefault(1),
   );
   const [sortByRaw, setSortBy] = useQueryState(
-    "sortBy",
+    "admin_sortBy",
     parseAsString.withDefault("deadline"),
   );
   const [sortDirRaw, setSortDir] = useQueryState(
-    "sortDir",
+    "admin_sortDir",
     parseAsString.withDefault("asc"),
   );
   const [statusFilterRaw, setStatusFilter] = useQueryState(
-    "status",
+    "admin_status",
     parseAsString.withDefault("all"),
   );
   const [draftSearchValue, setDraftSearchValue] = React.useState(searchValue);
@@ -272,11 +191,7 @@ export function AdminCard({
     ],
   );
 
-  const {
-    data: fetchedData,
-    isLoading,
-    isError,
-  } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey,
     queryFn: () =>
       fetchFiles(
@@ -288,119 +203,15 @@ export function AdminCard({
         sortDir,
         statusFilter,
       ),
-    enabled: !initialFiles,
+    placeholderData: keepPreviousData,
   });
 
-  const students = React.useMemo(() => {
-    if (fetchedData?.students) return fetchedData.students;
-    if (!initialFiles) return [];
+  const showLoadingSkeleton = isLoading && !data;
 
-    const grouped = new Map<string, StudentReviewRow>();
-    for (const file of initialFiles) {
-      const email = file.userEmail ?? "sem-email";
-      const existing = grouped.get(email);
-      const normalizedStatus = normalizeStatus(file.status);
-      const fileWithDeadline = {
-        id: file.id,
-        title: file.title,
-        hours: file.hours,
-        status: normalizedStatus,
-        fileUrl: file.fileUrl,
-        createdAt: file.createdAt,
-        deadline:
-          normalizedStatus === "PENDENTE"
-            ? (file.deadline ?? calculateDeadline(file.createdAt))
-            : null,
-      };
-
-      if (existing) {
-        existing.files.push(fileWithDeadline);
-        continue;
-      }
-
-      grouped.set(email, {
-        id: file.userEmail ?? file.id,
-        name: file.userName ?? null,
-        email,
-        status: "PENDENTE",
-        deadline: { hasPending: false },
-        files: [fileWithDeadline],
-      });
-    }
-
-    const groupedStudents = Array.from(grouped.values()).map((student) => {
-      const oldestPending = student.files
-        .filter((file) => file.status === "PENDENTE")
-        .sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        )[0];
-
-      const deadline = oldestPending
-        ? {
-            hasPending: true as const,
-            ...calculateDeadline(oldestPending.createdAt),
-          }
-        : { hasPending: false as const };
-
-      return {
-        ...student,
-        status: oldestPending ? ("PENDENTE" as const) : ("APROVADO" as const),
-        deadline,
-      };
-    });
-
-    const searchedStudents = searchValue.trim()
-      ? groupedStudents.filter((student) => {
-          const normalizedSearch = searchValue
-            .trim()
-            .toLocaleLowerCase("pt-BR");
-          const name = (student.name ?? "").toLocaleLowerCase("pt-BR");
-          const email = student.email.toLocaleLowerCase("pt-BR");
-          const hasFileTitle = student.files.some((file) =>
-            file.title.toLocaleLowerCase("pt-BR").includes(normalizedSearch),
-          );
-          return (
-            name.includes(normalizedSearch) ||
-            email.includes(normalizedSearch) ||
-            hasFileTitle
-          );
-        })
-      : groupedStudents;
-
-    const statusFilteredStudents = searchedStudents.filter((student) => {
-      if (statusFilter === "pending") {
-        return student.deadline.hasPending;
-      }
-      if (statusFilter === "reviewed") {
-        return !student.deadline.hasPending;
-      }
-      return true;
-    });
-
-    return [...statusFilteredStudents].sort((a, b) => {
-      if (sortBy === "name") {
-        const nameComparison = compareStrings(a.name, b.name, sortDir);
-        if (nameComparison !== 0) return nameComparison;
-        return compareStrings(a.email, b.email, sortDir);
-      }
-
-      if (sortBy === "email") {
-        const emailComparison = compareStrings(a.email, b.email, sortDir);
-        if (emailComparison !== 0) return emailComparison;
-        return compareStrings(a.name, b.name, sortDir);
-      }
-
-      return compareByDeadline(a, b, sortDir);
-    });
-  }, [
-    fetchedData?.students,
-    initialFiles,
-    searchValue,
-    sortBy,
-    sortDir,
-    statusFilter,
-  ]);
+  const students = React.useMemo(
+    () => (data?.students ?? []) as StudentReviewRow[],
+    [data?.students],
+  );
 
   useAutoPageSize({
     tableViewportRef,
@@ -416,8 +227,48 @@ export function AdminCard({
     ],
   });
 
-  const meta = fetchedData?.meta;
+  const meta = data?.meta;
   const totalPages = Math.max(1, meta?.totalPages ?? 1);
+
+  const handleSort = (key: SortBy) => {
+    const nextSortDir =
+      sortBy === key ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+
+    setSortBy(key, { history: "replace" });
+    setSortDir(nextSortDir, { history: "replace" });
+    setCurrentPage(1, { history: "replace" });
+  };
+
+  const SortHeader = ({
+    label,
+    field,
+    alignRight,
+  }: {
+    label: string;
+    field: SortBy;
+    alignRight?: boolean;
+  }) => {
+    const active = sortBy === field;
+
+    return (
+      <button
+        type="button"
+        className={cn(
+          "inline-flex items-center gap-1 tracking-wide text-muted-foreground transition-colors hover:text-foreground",
+          alignRight && "ml-auto",
+        )}
+        onClick={() => handleSort(field)}
+      >
+        <span>{label}</span>
+        {active &&
+          (sortDir === "asc" ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ))}
+      </button>
+    );
+  };
 
   React.useEffect(() => {
     if (!isError) {
@@ -473,28 +324,14 @@ export function AdminCard({
     }
 
     await queryClient.invalidateQueries({ queryKey });
+    await queryClient.invalidateQueries({
+      queryKey: ["admin-notification-counts"],
+    });
   };
 
   const openStudentDialog = (student: StudentReviewRow) => {
     setSelectedStudent(student);
     setIsDialogOpen(true);
-  };
-
-  const handleSortClick = React.useCallback(
-    (column: SortBy) => {
-      const nextSortDir: SortDir =
-        sortBy === column ? (sortDir === "asc" ? "desc" : "asc") : "asc";
-
-      setSortBy(column, { history: "replace" });
-      setSortDir(nextSortDir, { history: "replace" });
-      setCurrentPage(1, { history: "replace" });
-    },
-    [setCurrentPage, setSortBy, setSortDir, sortBy, sortDir],
-  );
-
-  const renderSortArrow = (column: SortBy) => {
-    if (sortBy !== column) return null;
-    return sortDir === "asc" ? "↑" : "↓";
   };
 
   return (
@@ -507,7 +344,7 @@ export function AdminCard({
 
       <Card.Content className="flex min-h-0 flex-1 flex-col gap-5">
         <form
-          className="relative mx-auto w-full sm:max-w-sm -mt-6"
+          className="relative mx-auto w-full sm:max-w-md -mt-6"
           onSubmit={(event) => {
             event.preventDefault();
             setSearchValue(draftSearchValue, { history: "replace" });
@@ -536,7 +373,7 @@ export function AdminCard({
             setStatusFilter(nextFilter, { history: "replace" });
             setCurrentPage(1, { history: "replace" });
           }}
-          className="mx-auto -mt-3 grid w-full max-w-sm grid-cols-3 gap-2"
+          className="mx-auto -mt-3 grid w-full sm:max-w-md grid-cols-3 gap-2"
         >
           <label className="flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm">
             <RadioGroupItem value="pending" />
@@ -563,56 +400,42 @@ export function AdminCard({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[45%]">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() => handleSortClick("name")}
-                  >
-                    Aluno {renderSortArrow("name")}
-                  </button>
+                  <SortHeader label="Aluno" field="name" />
                 </TableHead>
                 <TableHead className="hidden sm:table-cell w-[40%] text-left">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() => handleSortClick("email")}
-                  >
-                    Email {renderSortArrow("email")}
-                  </button>
+                  <SortHeader label="Email" field="email" />
                 </TableHead>
-                <TableHead className="w-[15%] text-right">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() => handleSortClick("deadline")}
-                  >
-                    Prazo {renderSortArrow("deadline")}
-                  </button>
+                <TableHead className="w-[16%] text-center">
+                  <span className="inline-flex w-full items-center justify-center tracking-wide text-muted-foreground">
+                    Status
+                  </span>
+                </TableHead>
+                <TableHead className="w-[14%] text-right">
+                  <SortHeader label="Prazo" field="deadline" alignRight />
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
-                <TableLoadingSkeleton rows={6} columns={3} />
+              {showLoadingSkeleton ? (
+                <TableLoadingSkeleton rows={6} columns={4} />
               ) : !isError && students.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-muted-foreground">
+                  <TableCell colSpan={4} className="text-muted-foreground">
                     Nenhum aluno com arquivos pendentes.
                   </TableCell>
                 </TableRow>
               ) : (
                 students.map((student) => {
-                  const badge = student.deadline.hasPending
-                    ? {
-                        variant: "pending" as const,
-                        label: student.deadline.isOverdue
-                          ? "Pendente · Vencido"
-                          : `Pendente · ${student.deadline.daysRemaining}d`,
-                      }
-                    : {
-                        variant: "approved" as const,
-                        label: "Finalizado",
-                      };
+                  const isPending = student.deadline.hasPending;
+                  const pendingFileCount = student.files.filter(
+                    (file) => file.status === "PENDENTE",
+                  ).length;
+                  const deadline = isPending
+                    ? ({
+                        daysRemaining: student.deadline.daysRemaining,
+                        isOverdue: student.deadline.isOverdue,
+                      } as const)
+                    : null;
 
                   return (
                     <TableRow
@@ -633,11 +456,26 @@ export function AdminCard({
                       <TableCell className="hidden sm:table-cell w-[40%] truncate text-left">
                         {student.email}
                       </TableCell>
-                      <TableCell className="w-[15%] text-right">
+                      <TableCell className="w-[16%] text-center">
+                        <div className="flex justify-center">
+                          <StatusBadge
+                            pending={isPending}
+                            compact={!isPending}
+                            count={pendingFileCount}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="w-[14%] text-right">
                         <div className="flex justify-end">
-                          <Badge variant={badge.variant} className="h-7">
-                            {badge.label}
-                          </Badge>
+                          <span className="hidden sm:inline-flex">
+                            <DeadlineIndicator
+                              deadline={deadline}
+                              compact={false}
+                            />
+                          </span>
+                          <span className="inline-flex sm:hidden">
+                            <DeadlineIndicator deadline={deadline} compact />
+                          </span>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -648,16 +486,12 @@ export function AdminCard({
           </Table>
         </div>
 
-        {!initialFiles && (
-          <PaginationControls
-            currentPage={currentPage}
-            totalPages={totalPages}
-            isLoading={isLoading}
-            onPageChange={(page) =>
-              setCurrentPage(page, { history: "replace" })
-            }
-          />
-        )}
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          isLoading={isLoading}
+          onPageChange={(page) => setCurrentPage(page, { history: "replace" })}
+        />
 
         <AdminDialog
           open={isDialogOpen}

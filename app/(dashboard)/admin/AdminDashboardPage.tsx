@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { parseAsString, useQueryState } from "nuqs";
 import { AdminCard } from "@/components/ds/admincard";
 import { Card } from "@/components/ds/card";
 import { Header } from "@/components/ds/header";
 import { UsersCard } from "@/components/ds/userscard";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/lib/auth-store";
 
 const TABS = [
@@ -13,17 +15,47 @@ const TABS = [
     id: "Complementar",
     label: "Complementar",
     permission: "canManageComplementar",
+    notificationKey: "complementar",
   },
   {
     id: "Extensão",
     label: "Extensão",
     permission: "canManageExtensao",
+    notificationKey: "extensao",
   },
-  { id: "Usuarios", label: "Usuários", permission: "canManageUsers" },
+  {
+    id: "Usuarios",
+    label: "Usuários",
+    permission: "canManageUsers",
+    notificationKey: "usuarios",
+  },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 type PermissionKey = (typeof TABS)[number]["permission"];
+type NotificationKey = (typeof TABS)[number]["notificationKey"];
+
+type AdminNotificationCounts = Record<NotificationKey, number>;
+
+const NOTIFICATION_QUERY_KEY = ["admin-notification-counts"] as const;
+
+async function fetchAdminNotificationCounts(): Promise<AdminNotificationCounts> {
+  const res = await fetch("/api/admin/notifications", {
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    throw new Error("Falha ao carregar notificações.");
+  }
+
+  const payload = (await res.json()) as Partial<AdminNotificationCounts>;
+
+  return {
+    complementar: payload.complementar ?? 0,
+    extensao: payload.extensao ?? 0,
+    usuarios: payload.usuarios ?? 0,
+  };
+}
 
 function isTabId(value: string): value is TabId {
   return TABS.some((tab) => tab.id === value);
@@ -50,6 +82,16 @@ export default function AdminDashboardPage() {
     parseAsString.withDefault("Complementar"),
   );
 
+  const { data: notificationCounts } = useQuery({
+    queryKey: NOTIFICATION_QUERY_KEY,
+    queryFn: fetchAdminNotificationCounts,
+    enabled:
+      authStatus === "authed" &&
+      authUser?.role === "admin" &&
+      authUser.hasAnyAdminPermission,
+    refetchInterval: 60_000,
+  });
+
   const allowedTabs = React.useMemo(() => {
     if (authStatus !== "authed" || authUser?.role !== "admin") return [];
 
@@ -61,6 +103,14 @@ export default function AdminDashboardPage() {
   const allowedTabIds = React.useMemo(
     () => allowedTabs.map((tab) => tab.id),
     [allowedTabs],
+  );
+  const tabsWithNotifications = React.useMemo(
+    () =>
+      allowedTabs.map((tab) => ({
+        ...tab,
+        notificationCount: notificationCounts?.[tab.notificationKey] ?? 0,
+      })),
+    [allowedTabs, notificationCounts],
   );
   const activeTabId = normalizeTabParam(tabParam, allowedTabIds);
 
@@ -78,7 +128,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="h-screen flex flex-col">
       <Header
-        tabs={allowedTabs}
+        tabs={tabsWithNotifications}
         activeTabId={activeTabId ?? undefined}
         onTabChange={(id) => {
           if (!isTabId(id) || !allowedTabIds.includes(id)) return;
@@ -91,9 +141,16 @@ export default function AdminDashboardPage() {
       <main className="flex-1 min-h-0 p-4">
         <div className="mx-auto h-full w-full max-w-4xl">
           {authStatus === "loading" ? (
-            <div className="text-sm text-muted-foreground">
-              Carregando permissões...
-            </div>
+            <Card className="m-0">
+              <Card.Header>
+                <Skeleton className="h-7 w-64" />
+              </Card.Header>
+              <Card.Content className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-90 w-full" />
+              </Card.Content>
+            </Card>
           ) : null}
 
           {showNoPermissionMessage ? (

@@ -1,9 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
-import { ArrowUpDown, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { Card } from "@/components/ds/card";
 import { notify } from "@/components/ds/notification";
 import {
@@ -12,10 +16,14 @@ import {
 } from "@/components/ds/table-pagination";
 import { TableLoadingSkeleton } from "@/components/ds/table-loading-skeleton";
 import { UnapprovedUserRow } from "@/components/ds/unapproved-user-row";
+import { AccessStatusBadge } from "@/components/ds/access-status-badge";
+import { RoleBadge } from "@/components/ds/role-badge";
+import {
+  PERMISSION_KEYS,
+  PermissionBadge,
+} from "@/components/ds/permission-badge";
 import { UserDialog } from "@/components/ds/userdialog";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ds/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Table,
@@ -35,7 +43,13 @@ type UsersCardProps = {
 };
 
 type RoleFilter = "all" | "admin" | "student";
-type SortBy = "name" | "email" | "role" | "createdAt";
+type SortBy =
+  | "name"
+  | "email"
+  | "status"
+  | "role"
+  | "permissions"
+  | "createdAt";
 type SortDir = "asc" | "desc";
 
 function normalizeRoleFilter(value: string): RoleFilter {
@@ -49,7 +63,9 @@ function normalizeSortBy(value: string): SortBy {
   if (
     value === "name" ||
     value === "email" ||
+    value === "status" ||
     value === "role" ||
+    value === "permissions" ||
     value === "createdAt"
   ) {
     return value;
@@ -102,6 +118,33 @@ function formatDate(input: string) {
   return date.toLocaleDateString("pt-BR");
 }
 
+function renderPermissionSummary(user: UsersResponse["users"][number]) {
+  if (user.role !== "ADMIN") {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  const activePermissions = PERMISSION_KEYS.filter(
+    (key) => user.permissions[key],
+  );
+
+  if (activePermissions.length === 0) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  return (
+    <div className="flex flex-nowrap items-center gap-1 overflow-hidden">
+      {activePermissions.map((key) => (
+        <PermissionBadge key={key} permission={key} />
+      ))}
+    </div>
+  );
+}
+
+function getActivePermissionCount(user: UsersResponse["users"][number]) {
+  if (user.role !== "ADMIN") return 0;
+  return PERMISSION_KEYS.filter((key) => user.permissions[key]).length;
+}
+
 export function UsersCard({ title, className }: UsersCardProps) {
   const [pageSize, setPageSize] = React.useState(10);
   const tableViewportRef = React.useRef<HTMLDivElement>(null!);
@@ -124,7 +167,7 @@ export function UsersCard({ title, className }: UsersCardProps) {
   );
   const [sortDirParam, setSortDirParam] = useQueryState(
     "users_sort_dir",
-    parseAsString.withDefault("desc"),
+    parseAsString.withDefault("asc"),
   );
   const [draftSearchValue, setDraftSearchValue] = React.useState(searchValue);
   const [actionInFlightUserId, setActionInFlightUserId] = React.useState<
@@ -161,7 +204,10 @@ export function UsersCard({ title, className }: UsersCardProps) {
   const { data, isLoading, isError } = useQuery({
     queryKey,
     queryFn: () => fetchUsers(searchValue, currentPage, pageSize, roleFilter),
+    placeholderData: keepPreviousData,
   });
+
+  const showLoadingSkeleton = isLoading && !data;
 
   const users = React.useMemo(() => data?.users ?? [], [data?.users]);
   const canManage = data?.canManage ?? false;
@@ -173,6 +219,12 @@ export function UsersCard({ title, className }: UsersCardProps) {
     const direction = sortDir === "asc" ? 1 : -1;
 
     return [...users].sort((a, b) => {
+      const aIsPending = a.accessStatus === "PENDING";
+      const bIsPending = b.accessStatus === "PENDING";
+      if (aIsPending !== bIsPending) {
+        return aIsPending ? -1 : 1;
+      }
+
       if (sortBy === "createdAt") {
         return (
           (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) *
@@ -183,6 +235,20 @@ export function UsersCard({ title, className }: UsersCardProps) {
       if (sortBy === "role") {
         const roleCompare = a.role.localeCompare(b.role, "pt-BR");
         if (roleCompare !== 0) return roleCompare * direction;
+      }
+
+      if (sortBy === "status") {
+        const statusCompare = a.accessStatus.localeCompare(
+          b.accessStatus,
+          "pt-BR",
+        );
+        if (statusCompare !== 0) return statusCompare * direction;
+      }
+
+      if (sortBy === "permissions") {
+        const permissionCompare =
+          getActivePermissionCount(a) - getActivePermissionCount(b);
+        if (permissionCompare !== 0) return permissionCompare * direction;
       }
 
       if (sortBy === "name") {
@@ -221,7 +287,7 @@ export function UsersCard({ title, className }: UsersCardProps) {
     }
 
     setSortByParam(key, { history: "replace" });
-    setSortDirParam(key === "createdAt" ? "desc" : "asc", {
+    setSortDirParam("asc", {
       history: "replace",
     });
   };
@@ -301,6 +367,9 @@ export function UsersCard({ title, className }: UsersCardProps) {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin-notification-counts"],
+      });
       notify.success(
         status === "APPROVED" ? "Usuário aprovado" : "Usuário rejeitado",
         status === "APPROVED"
@@ -343,6 +412,9 @@ export function UsersCard({ title, className }: UsersCardProps) {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin-notification-counts"],
+      });
       setDialogOpen(false);
       setSelectedUser(null);
       notify.success("Usuário atualizado", "As alterações foram salvas.");
@@ -356,6 +428,22 @@ export function UsersCard({ title, className }: UsersCardProps) {
     }
   };
 
+  const handleUserRowAction = (user: UsersResponse["users"][number]) => {
+    if (!canManage) return;
+
+    if (!isPendingUser(user)) {
+      setSelectedUser(user);
+      setDialogOpen(true);
+      setActiveActionRowId(null);
+      return;
+    }
+
+    setActiveActionRowId((prev) => (prev === user.id ? null : user.id));
+  };
+
+  const isPendingUser = (user: UsersResponse["users"][number]) =>
+    user.accessStatus === "PENDING";
+
   return (
     <Card className={cn("flex h-full min-h-0 flex-col", className)}>
       <Card.Header className="justify-center">
@@ -366,7 +454,7 @@ export function UsersCard({ title, className }: UsersCardProps) {
 
       <Card.Content className="flex min-h-0 flex-1 flex-col gap-5">
         <form
-          className="relative mx-auto w-full sm:max-w-sm -mt-6"
+          className="relative mx-auto w-full sm:max-w-md -mt-6"
           onSubmit={(event) => {
             event.preventDefault();
             setSearchValue(draftSearchValue, { history: "replace" });
@@ -395,11 +483,11 @@ export function UsersCard({ title, className }: UsersCardProps) {
             setRoleFilterParam(normalized, { history: "replace" });
             setCurrentPage(1, { history: "replace" });
           }}
-          className="mx-auto -mt-3 grid w-full max-w-sm grid-cols-3 gap-2"
+          className="mx-auto -mt-3 grid w-full sm:max-w-md grid-cols-3 gap-2"
         >
           <label className="flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm">
             <RadioGroupItem value="admin" />
-            Admins
+            Administradores
           </label>
           <label className="flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm">
             <RadioGroupItem value="student" />
@@ -421,54 +509,65 @@ export function UsersCard({ title, className }: UsersCardProps) {
           <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[45%]">
+                <TableHead className="w-[28%]">
                   <SortHeader label="Nome" field="name" />
                 </TableHead>
-                <TableHead className="w-[45%]">
+                <TableHead className="w-[25%]">
                   <SortHeader label="Email" field="email" />
                 </TableHead>
-                <TableHead className="w-[45%]">
-                  <SortHeader label="Perfil" field="role" />
+                <TableHead className="w-[6%]">
+                  <div className="flex justify-center">
+                    <SortHeader label="Status" field="status" />
+                  </div>
                 </TableHead>
-                <TableHead className="w-[45%] text-right">
+                <TableHead className="w-[6%]">
+                  <div className="flex justify-center">
+                    <SortHeader label="Perfil" field="role" />
+                  </div>
+                </TableHead>
+                <TableHead className="w-[20%]">
+                  <SortHeader label="Permissões" field="permissions" />
+                </TableHead>
+                <TableHead className="w-[15%] text-right">
                   <SortHeader label="Cadastro" field="createdAt" alignRight />
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
-                <TableLoadingSkeleton rows={6} columns={4} />
+              {showLoadingSkeleton ? (
+                <TableLoadingSkeleton rows={6} columns={6} />
               ) : !isError && users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground">
+                  <TableCell colSpan={6} className="text-muted-foreground">
                     Nenhum usuário encontrado.
                   </TableCell>
                 </TableRow>
               ) : (
                 orderedUsers.map((user) => {
-                  const isPending = user.accessStatus === "PENDING";
+                  const isPending = isPendingUser(user);
                   const isActionActive = activeActionRowId === user.id;
 
                   return (
                     <TableRow
                       key={user.id}
                       className={cn(
-                        "group",
+                        "group h-14",
                         isPending
                           ? "bg-status-pending/10 transition-colors hover:bg-status-pending/15"
                           : "bg-transparent",
-                        isPending && canManage && "cursor-pointer",
+                        canManage && "cursor-pointer",
                       )}
                       data-active={isActionActive ? "true" : "false"}
-                      tabIndex={canManage && isPending ? 0 : -1}
-                      onClick={() => {
-                        if (!canManage || !isPending) return;
-                        setActiveActionRowId((prev) =>
-                          prev === user.id ? null : user.id,
-                        );
+                      tabIndex={canManage ? 0 : -1}
+                      onClick={() => handleUserRowAction(user)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleUserRowAction(user);
+                        }
                       }}
                     >
-                      <TableCell className="max-w-60 ">
+                      <TableCell className="max-w-60">
                         <div className="flex items-center gap-2">
                           <span className="truncate font-medium">
                             {user.name ?? "-"}
@@ -478,34 +577,30 @@ export function UsersCard({ title, className }: UsersCardProps) {
                       <TableCell className="max-w-70 truncate">
                         {user.email}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              user.role === "ADMIN" ? "approved" : "pending"
-                            }
-                          >
-                            {user.role === "ADMIN" ? "Funcionário" : "Aluno"}
-                          </Badge>
-                          {user.role === "ADMIN" &&
-                          user.permissions.canManageUsers ? (
-                            <Badge variant="outline">Gestor usuários</Badge>
-                          ) : null}
-                          {user.accessStatus === "REJECTED" ? (
-                            <Badge variant="denied">Bloqueado</Badge>
-                          ) : null}
+                      <TableCell className="text-center">
+                        <AccessStatusBadge
+                          status={user.accessStatus}
+                          iconOnly
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <RoleBadge role={user.role} iconOnly />
                         </div>
                       </TableCell>
-                      <TableCell className="relative text-right text-sm text-muted-foreground">
+                      <TableCell className="overflow-hidden">
+                        {renderPermissionSummary(user)}
+                      </TableCell>
+                      <TableCell className="relative min-w-32 text-right text-sm text-muted-foreground">
                         {user.accessStatus === "PENDING" ? (
-                          <div className="relative flex h-full items-center justify-end">
-                            <span className="transition-opacity duration-200 group-hover:opacity-0 group-data-[active=true]:opacity-0">
+                          <div className="relative flex min-h-8 items-center justify-end pr-1">
+                            <span className="tabular-nums transition-opacity duration-200 group-hover:opacity-0 group-data-[active=true]:opacity-0">
                               {formatDate(user.createdAt)}
                             </span>
                             <div
                               className={cn(
-                                "absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200",
-                                "group-hover:opacity-100 group-data-[active=true]:opacity-100",
+                                "pointer-events-none absolute right-1 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end opacity-0 transition-opacity duration-200",
+                                "group-hover:pointer-events-auto group-hover:opacity-100 group-data-[active=true]:pointer-events-auto group-data-[active=true]:opacity-100",
                               )}
                             >
                               <UnapprovedUserRow
@@ -516,22 +611,9 @@ export function UsersCard({ title, className }: UsersCardProps) {
                             </div>
                           </div>
                         ) : (
-                          <div className="inline-flex items-center gap-3">
-                            <span>{formatDate(user.createdAt)}</span>
-                            {canManage ? (
-                              <Button
-                                type="button"
-                                intent="secondary"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedUser(user);
-                                  setDialogOpen(true);
-                                }}
-                              >
-                                Gerenciar
-                              </Button>
-                            ) : null}
-                          </div>
+                          <span className="tabular-nums">
+                            {formatDate(user.createdAt)}
+                          </span>
                         )}
                       </TableCell>
                     </TableRow>

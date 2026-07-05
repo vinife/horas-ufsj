@@ -55,15 +55,16 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 0.5rem;
+  min-height: 2.5rem;
   border-radius: 9999px;
 }
 
 .triggerActive:not(#x) {
-  min-width: -webkit-fit-content;
-  min-width: fit-content;
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
+  min-width: 0;
+  width: auto;
+  padding-left: 1.1rem;
+  padding-right: 1.1rem;
 }
 
 .triggerInactive:not(#x) {
@@ -94,9 +95,11 @@
   .triggerInactive:not(#x) {
     width: max-content; /* cresce com o conteúdo */
     max-width: none;
+    min-width: -webkit-fill-available;
     min-width: 7rem;
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
+    min-height: 2.5rem;
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
     width: auto;
     justify-content: center;
     overflow: visible;

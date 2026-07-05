@@ -75,7 +75,7 @@ export function useAutoPageSize({
     )
 
     setPageSize((prev) => (prev === nextPageSize ? prev : nextPageSize))
-  }, [maxPageSize, minPageSize])
+  }, [maxPageSize, minPageSize, setPageSize, tableViewportRef])
 
   React.useEffect(() => {
     const rafId = window.requestAnimationFrame(() => {
@@ -83,7 +83,7 @@ export function useAutoPageSize({
     })
 
     return () => window.cancelAnimationFrame(rafId)
-  }, [recomputePageSize, ...dependencies])
+  }, [recomputePageSize, dependencies])
 
   React.useEffect(() => {
     const viewport = tableViewportRef.current
@@ -100,7 +100,7 @@ export function useAutoPageSize({
       resizeObserver.disconnect()
       window.removeEventListener("resize", recomputePageSize)
     }
-  }, [recomputePageSize])
+  }, [recomputePageSize, tableViewportRef])
 }
 
 export function PaginationControls({

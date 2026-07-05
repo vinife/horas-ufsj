@@ -19,17 +19,13 @@ export function UnapprovedUserRow({
   actionInFlightUserId,
   onChangeStatus,
 }: UnapprovedUserRowProps) {
-  // if (!canManage || user.accessStatus !== "PENDING") {
-  //   return null
-  // }
-
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <Button
         type="button"
         intent="secondary"
         size="icon-sm"
-        className="rounded-full bg-status-approved text-status-approved-foreground shadow-sm hover:bg-status-approved/90"
+        className="rounded-full border border-status-approved bg-background text-status-approved shadow-sm hover:bg-status-approved/20 hover:text-status-approved"
         disabled={actionInFlightUserId === user.id}
         aria-label="Aprovar solicitação"
         onClick={(event) => {
@@ -45,7 +41,7 @@ export function UnapprovedUserRow({
         type="button"
         intent="secondary"
         size="icon-sm"
-        className="rounded-full bg-status-denied text-status-denied-foreground shadow-sm hover:bg-status-denied/90"
+        className="rounded-full border border-status-denied bg-background text-status-denied shadow-sm hover:bg-status-denied/10"
         disabled={actionInFlightUserId === user.id}
         aria-label="Negar solicitação"
         onClick={(event) => {

@@ -1,37 +1,39 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Button } from "@/components/ds/button"
+import * as React from "react";
+import { Button } from "@/components/ds/button";
+import { NotificationBadge } from "@/components/ds/notification-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Switch } from "@/components/ui/switch"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAuthStore } from "@/lib/auth-store"
-import { cn } from "@/lib/utils"
-import { useClientStore } from "@/lib/client-store"
-import { useHydrated } from "@/lib/use-hydrated"
-import { LogOutIcon, MoreHorizontalIcon } from "lucide-react"
-import Image from "next/image"
-import styles from "./header.module.css"
+} from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuthStore } from "@/lib/auth-store";
+import { cn } from "@/lib/utils";
+import { useClientStore } from "@/lib/client-store";
+import { useHydrated } from "@/lib/use-hydrated";
+import { LogOutIcon, MoreHorizontalIcon } from "lucide-react";
+import Image from "next/image";
+import styles from "./header.module.css";
 
 type HeaderTab = {
-  id: string
-  label: string
-  disabled?: boolean
-}
+  id: string;
+  label: string;
+  notificationCount?: number;
+  disabled?: boolean;
+};
 
 type HeaderProps = {
-  tabs: HeaderTab[]
-  activeTabId?: string
-  onTabChange?: (id: string) => void
-  onLogout?: () => void
-  className?: string
-}
+  tabs: HeaderTab[];
+  activeTabId?: string;
+  onTabChange?: (id: string) => void;
+  onLogout?: () => void;
+  className?: string;
+};
 
 export function Header({
   tabs,
@@ -40,52 +42,52 @@ export function Header({
   onLogout,
   className,
 }: HeaderProps) {
-  const hydrated = useHydrated()
-  const theme = useClientStore((state) => state.theme)
-  const toggleTheme = useClientStore((state) => state.toggleTheme)
-  const authStatus = useAuthStore((state) => state.status)
-  const authUser = useAuthStore((state) => state.user)
-  const setAuthUser = useAuthStore((state) => state.setUser)
-  const setAuthStatus = useAuthStore((state) => state.setStatus)
+  const hydrated = useHydrated();
+  const theme = useClientStore((state) => state.theme);
+  const toggleTheme = useClientStore((state) => state.toggleTheme);
+  const authStatus = useAuthStore((state) => state.status);
+  const authUser = useAuthStore((state) => state.user);
+  const setAuthUser = useAuthStore((state) => state.setUser);
+  const setAuthStatus = useAuthStore((state) => state.setStatus);
 
   React.useEffect(() => {
-    if (!hydrated) return
-    document.documentElement.classList.toggle("dark", theme === "dark")
-  }, [hydrated, theme])
+    if (!hydrated) return;
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [hydrated, theme]);
 
   React.useEffect(() => {
-    if (!hydrated) return
-    if (authStatus !== "loading") return
-    let cancelled = false
+    if (!hydrated) return;
+    if (authStatus !== "loading") return;
+    let cancelled = false;
 
     fetch("/api/auth/session")
       .then((res) => res.json())
       .then((data) => {
-        if (cancelled) return
-        setAuthUser(data?.user ?? null)
+        if (cancelled) return;
+        setAuthUser(data?.user ?? null);
       })
       .catch(() => {
-        if (cancelled) return
-        setAuthStatus("guest")
-      })
+        if (cancelled) return;
+        setAuthStatus("guest");
+      });
 
     return () => {
-      cancelled = true
-    }
-  }, [hydrated, authStatus, setAuthStatus, setAuthUser])
+      cancelled = true;
+    };
+  }, [hydrated, authStatus, setAuthStatus, setAuthUser]);
 
-  const safeTabs = tabs
-  const selectedTab = activeTabId ?? safeTabs[0]?.id
+  const safeTabs = tabs;
+  const selectedTab = activeTabId ?? safeTabs[0]?.id;
 
   return (
     <header
       className={cn(
-        "relative w-full border-b border-border bg-background",
-        "flex min-h-16 items-center justify-between gap-4 px-4 py-3",
+        "relative grid w-full grid-cols-[1fr_auto_1fr] items-center border-b border-border bg-background",
+        "min-h-16 gap-4 px-4 py-3",
         className,
       )}
     >
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3 justify-self-start">
         <Image
           src="/Ccomp.png"
           alt="Logo"
@@ -93,10 +95,9 @@ export function Header({
           height={32}
           className="size-8 object-cover"
         />
-
       </div>
 
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex items-center justify-center justify-self-center">
         {selectedTab ? (
           <Tabs
             value={selectedTab}
@@ -119,7 +120,7 @@ export function Header({
             </TabsList> */}
             <TabsList className="items-center gap-1 justify-center px-1.5">
               {safeTabs.map((tab) => {
-                const isActive = tab.id === selectedTab
+                const isActive = tab.id === selectedTab;
                 return (
                   <TabsTrigger
                     key={tab.id}
@@ -127,9 +128,7 @@ export function Header({
                     disabled={tab.disabled}
                     className={cn(
                       styles.trigger,
-                      isActive
-                        ? styles.triggerActive
-                        : styles.triggerInactive,
+                      isActive ? styles.triggerActive : styles.triggerInactive,
                     )}
                   >
                     <span
@@ -150,6 +149,13 @@ export function Header({
                     >
                       {tab.label}
                     </span>
+                    <NotificationBadge
+                      count={tab.notificationCount ?? 0}
+                      className={cn(
+                        "self-center",
+                        !isActive && "hidden md:inline-flex",
+                      )}
+                    />
                     {/* {!isActive && (
                       <span className="md:hidden flex size-6 shrink-0 items-center justify-center rounded-full ring-1 ring-border bg-muted text-[11px] font-medium text-muted-foreground leading-none">
                         {tab.label[0]}
@@ -166,14 +172,14 @@ export function Header({
                       {tab.label}
                     </span> */}
                   </TabsTrigger>
-                )
+                );
               })}
             </TabsList>
           </Tabs>
         ) : null}
       </div>
 
-      <div className="hidden items-center gap-2 md:flex overflow-hidden">
+      <div className="hidden items-center gap-2 overflow-hidden justify-self-end md:flex">
         {authStatus === "authed" && (
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
             {authUser?.name ?? authUser?.email}
@@ -189,11 +195,7 @@ export function Header({
           />
         </div>
 
-        <Button
-          intent="tertiary"
-          className="min-w-24 gap-2"
-          onClick={onLogout}
-        >
+        <Button intent="tertiary" className="min-w-24 gap-2" onClick={onLogout}>
           <LogOutIcon />
           Sair
         </Button>
@@ -209,10 +211,7 @@ export function Header({
             <MoreHorizontalIcon className="size-5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="w-64 md:hidden"
-        >
+        <DropdownMenuContent align="end" className="w-64 md:hidden">
           {authStatus === "authed" ? (
             <>
               <div className="px-3 py-2">
@@ -254,5 +253,5 @@ export function Header({
         </DropdownMenuContent>
       </DropdownMenu>
     </header>
-  )
+  );
 }

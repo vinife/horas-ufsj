@@ -2,7 +2,12 @@
 
 import * as React from "react";
 import { Button } from "@/components/ds/button";
-import { Badge } from "@/components/ui/badge";
+import { RoleBadge } from "@/components/ds/role-badge";
+import { AccessStatusBadge } from "@/components/ds/access-status-badge";
+import {
+  PERMISSION_KEYS,
+  PermissionBadge,
+} from "@/components/ds/permission-badge";
 import {
   Dialog,
   DialogContent,
@@ -29,12 +34,6 @@ type UserDialogProps = {
   }) => Promise<void>;
 };
 
-function statusLabel(status: ManagedAccessStatus) {
-  if (status === "APPROVED") return "Aprovado";
-  if (status === "REJECTED") return "Bloqueado";
-  return "Pendente";
-}
-
 export function UserDialog({
   open,
   onOpenChange,
@@ -60,6 +59,16 @@ export function UserDialog({
 
   const saveDisabled = !user || isSaving;
 
+  const activePermissions = React.useMemo(() => {
+    if (!isAdmin) return [];
+    return PERMISSION_KEYS.filter((key) => {
+      if (key === "canManageComplementar") return canManageComplementar;
+      if (key === "canManageExtensao") return canManageExtensao;
+      if (key === "canManageUsers") return canManageUsers;
+      return false;
+    });
+  }, [isAdmin, canManageComplementar, canManageExtensao, canManageUsers]);
+
   const handleSave = async () => {
     if (!user) return;
 
@@ -79,7 +88,7 @@ export function UserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Gerenciar usuário</DialogTitle>
           <DialogDescription>
@@ -92,14 +101,26 @@ export function UserDialog({
             <div className="rounded-lg border p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium">{user.name ?? "Usuário"}</p>
-                <Badge variant={user.role === "ADMIN" ? "approved" : "pending"}>
-                  {user.role === "ADMIN" ? "Administrador" : "Aluno"}
-                </Badge>
-                <Badge variant={status === "REJECTED" ? "denied" : "outline"}>
-                  {statusLabel(status)}
-                </Badge>
+                <RoleBadge role={user.role} />
+                <AccessStatusBadge status={status} />
               </div>
               <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
+              {isAdmin ? (
+                <div className="mt-3 flex flex-wrap items-center gap-1">
+                  <span className="text-xs text-muted-foreground">
+                    Permissões:
+                  </span>
+                  {activePermissions.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      nenhuma
+                    </span>
+                  ) : (
+                    activePermissions.map((key) => (
+                      <PermissionBadge key={key} permission={key} />
+                    ))
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-lg border p-4">
