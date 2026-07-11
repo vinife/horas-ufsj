@@ -78,9 +78,13 @@ model Certificate {
 
   // --- INTERVENÇÃO DA IA (Totalmente Isolada) ---
   aiStatus        AiStatus        @default(QUEUED)
+  aiDecision     Status          @default(PENDING)
   aiSuggestedTitle String?
   aiSuggestedHours Int?
-  aiFeedback      Json?
+  aiFeedback      String?
+
+  // Campo Técnico Bruto
+  aiRaw            Json?    // Salva o dicionário completo retornado pelo Python
 
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -94,4 +98,6 @@ model SystemConfig {
   id              String   @id @default("current_config")
   tunedTextModel  String?  // Ex: "tunedModels/gemini-ufsj-texto-v1"
   updatedAt       DateTime @updatedAt
+  extensaoLimit   Int     @default(200)// Limite de horas para certificados de extensão
+  complementarLimit Int @default(120) // Limite de horas para certificados de complementação
 }

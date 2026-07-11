@@ -289,9 +289,11 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
             title: true,
             hours: true,
             status: true,
+            feedback: true,
             fileUrl: true,
             createdAt: true,
             aiStatus: true,
+            aiDecision: true,
             aiSuggestedTitle: true,
             aiSuggestedHours: true,
             aiFeedback: true,
@@ -339,6 +341,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
               title: file.title,
               hours: file.hours ?? 0,
               status: toDisplayStatus(file.status),
+              feedback: file.feedback,
               fileUrl: file.fileUrl,
               createdAt: file.createdAt,
               deadline:
@@ -346,6 +349,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
                   ? calculateDeadline(file.createdAt, nowMs)
                   : null,
               aiStatus: file.aiStatus,
+              aiDecision: file.aiDecision,
               aiSuggestedTitle: file.aiSuggestedTitle,
               aiSuggestedHours: file.aiSuggestedHours,
               aiFeedback: file.aiFeedback,

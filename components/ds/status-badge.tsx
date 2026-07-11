@@ -25,7 +25,7 @@ export function StatusBadge({
         title={`${pendingCount} arquivo${pendingCount === 1 ? "" : "s"} pendente${pendingCount === 1 ? "" : "s"}`}
       >
         <CircleDot className="size-3.5" />
-        <span>{pendingCount}</span>
+        <span className="font-black">{pendingCount}</span>
       </Badge>
     );
   }

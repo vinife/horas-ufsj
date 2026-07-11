@@ -50,9 +50,11 @@ type CertificateRow = {
   aiStatus: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
   aiSuggestedTitle: string | null;
   aiSuggestedHours: number | null;
-  aiFeedback?: Prisma.InputJsonValue;
+  aiFeedback: string | null;
   createdAt: Date;
   updatedAt: Date;
+  aiDecision: CertificateStatus;
+  aiRaw: Prisma.InputJsonValue | null;
 };
 
 function randomFrom<T>(items: readonly T[]) {
@@ -333,18 +335,23 @@ async function createCertificates(students: StudentSeed[], perStudent: number) {
 
       const aiSuggestedHours = Math.min(120, Math.max(1, 8 + (i % 25)));
 
-      const aiFeedback: Prisma.InputJsonValue | undefined =
+      const aiDecision =
+        aiStatus === "COMPLETED" ? weightedReviewedStatus() : "PENDING";
+
+      const aiRaw: Prisma.InputJsonValue | null =
         aiStatus === "COMPLETED"
           ? {
               confidence: Number((0.65 + (i % 30) / 100).toFixed(2)),
               extractedHours: aiSuggestedHours,
               extractedTitle: title,
+              decision: aiDecision,
+              reasoning: "Análise baseada em template conhecido.",
             }
           : aiStatus === "FAILED"
             ? {
                 error: "Falha ao processar OCR do comprovante.",
               }
-            : undefined;
+            : null;
 
       rows.push({
         title,
@@ -361,7 +368,9 @@ async function createCertificates(students: StudentSeed[], perStudent: number) {
         aiStatus,
         aiSuggestedTitle: aiStatus === "COMPLETED" ? `${title} (IA)` : null,
         aiSuggestedHours: aiStatus === "COMPLETED" ? aiSuggestedHours : null,
-        aiFeedback,
+        aiFeedback: aiRaw ? JSON.stringify(aiRaw, null, 2) : null,
+        aiDecision,
+        aiRaw,
         createdAt,
         updatedAt,
       });
@@ -384,9 +393,11 @@ async function createCertificates(students: StudentSeed[], perStudent: number) {
         aiStatus: "QUEUED",
         aiSuggestedTitle: null,
         aiSuggestedHours: null,
-        aiFeedback: undefined,
+        aiFeedback: null,
         createdAt,
         updatedAt: createdAt,
+        aiDecision: "PENDING",
+        aiRaw: null,
       });
     }
 
@@ -407,9 +418,11 @@ async function createCertificates(students: StudentSeed[], perStudent: number) {
         aiStatus: "QUEUED",
         aiSuggestedTitle: null,
         aiSuggestedHours: null,
-        aiFeedback: undefined,
+        aiFeedback: null,
         createdAt,
         updatedAt: createdAt,
+        aiDecision: "PENDING",
+        aiRaw: null,
       });
     }
   }

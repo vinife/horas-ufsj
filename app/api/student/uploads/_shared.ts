@@ -15,15 +15,22 @@ import { NextResponse } from "next/server";
 import { Readable } from "node:stream";
 
 type UploadType = "complementar" | "extensao";
-type LimitStrategy = "reject" | "clamp";
 
-const HOURS_LIMIT_BY_TYPE: Record<UploadType, number> = {
-  complementar: Number(process.env.MAX_HOURS_COMPLEMENTAR ?? 120),
-  extensao: Number(process.env.MAX_HOURS_EXTENSAO ?? 120),
-};
+// const HOURS_LIMIT_STRATEGY: LimitStrategy =
+//   process.env.HOURS_LIMIT_STRATEGY === "clamp" ? "clamp" : "reject";
+async function getHoursLimitForType(uploadType: UploadType) {
+  const config = await db.systemConfig.findUnique({
+    where: { id: "current_config" },
+    select: { complementarLimit: true, extensaoLimit: true },
+  });
 
-const HOURS_LIMIT_STRATEGY: LimitStrategy =
-  process.env.HOURS_LIMIT_STRATEGY === "clamp" ? "clamp" : "reject";
+  if (uploadType === "extensao") {
+    // O schema.prisma define o padrão como 200
+    return config?.extensaoLimit ?? 200;
+  }
+  // O schema.prisma define o padrão como 120
+  return config?.complementarLimit ?? 120;
+}
 
 function toCertificateType(uploadType: UploadType) {
   return (
@@ -306,6 +313,7 @@ export function createUploadHandlers(uploadType: UploadType) {
     if (query instanceof Response) return query;
 
     const search = query.q.trim();
+    const limit = await getHoursLimitForType(uploadType);
 
     const where: Prisma.CertificateWhereInput = {
       certificatetype: toCertificateType(uploadType),
@@ -328,10 +336,17 @@ export function createUploadHandlers(uploadType: UploadType) {
         status: true,
         fileUrl: true,
         createdAt: true,
+        feedback: true,
       },
     });
 
-    return NextResponse.json({ files }, { status: 200 });
+    return NextResponse.json(
+      {
+        files,
+        limit,
+      },
+      { status: 200 },
+    );
   }
 
   async function POST(request: NextRequest) {
@@ -370,7 +385,7 @@ export function createUploadHandlers(uploadType: UploadType) {
       return NextResponse.json({ error: "Invalid hours" }, { status: 400 });
     }
 
-    const hoursLimit = HOURS_LIMIT_BY_TYPE[uploadType];
+    const hoursLimit = await getHoursLimitForType(uploadType);
     if (
       !Number.isFinite(hoursLimit) ||
       !Number.isInteger(hoursLimit) ||
@@ -407,22 +422,22 @@ export function createUploadHandlers(uploadType: UploadType) {
       );
     }
 
-    const acceptedHours =
-      hours > remainingHours && HOURS_LIMIT_STRATEGY === "clamp"
-        ? remainingHours
-        : hours;
+    // const acceptedHours =
+    //   hours > remainingHours && HOURS_LIMIT_STRATEGY === "clamp"
+    //     ? remainingHours
+    //     : hours;
 
-    if (acceptedHours > remainingHours) {
-      return NextResponse.json(
-        {
-          error: `Envio excede o limite de ${hoursLimit}h para ${uploadType}. Restam ${remainingHours}h.`,
-          limit: hoursLimit,
-          used: usedHours,
-          remaining: remainingHours,
-        },
-        { status: 400 },
-      );
-    }
+    // if (acceptedHours > remainingHours) {
+    //   return NextResponse.json(
+    //     {
+    //       error: `Envio excede o limite de ${hoursLimit}h para ${uploadType}. Restam ${remainingHours}h.`,
+    //       limit: hoursLimit,
+    //       used: usedHours,
+    //       remaining: remainingHours,
+    //     },
+    //     { status: 400 },
+    //   );
+    // }
 
     const drive = await getDriveClient();
     const folderName =
@@ -477,7 +492,6 @@ export function createUploadHandlers(uploadType: UploadType) {
         title,
         // description: uploadType,
         certificatetype: certificateType,
-        hours: acceptedHours,
         fileUrl: uploaded.data.webViewLink ?? "",
         fileId: uploaded.data.id ?? "",
         status: "PENDING",

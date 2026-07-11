@@ -195,7 +195,11 @@ export function Header({
           />
         </div>
 
-        <Button intent="tertiary" className="min-w-24 gap-2" onClick={onLogout}>
+        <Button
+          intent="secondary"
+          className="min-w-24 gap-2"
+          onClick={onLogout}
+        >
           <LogOutIcon />
           Sair
         </Button>

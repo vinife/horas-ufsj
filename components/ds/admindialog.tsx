@@ -2,7 +2,14 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { ArrowLeft, Eye, ImageOff, LoaderCircle, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  ImageOff,
+  LoaderCircle,
+  Save,
+  Sparkles,
+} from "lucide-react";
 import { notify } from "@/components/ds/notification";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,14 +26,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ds/button";
+import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type FileStatus = "PENDENTE" | "APROVADO" | "REJEITADO";
@@ -36,9 +37,12 @@ export type StudentReviewFile = {
   title: string;
   hours: number;
   status: FileStatus;
+  feedback?: string | null;
   fileUrl: string;
   createdAt: string | Date;
   aiStatus?: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED" | null;
+  aiDecision?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  aiSuggestedTitle?: string | null;
   aiSuggestedHours?: number | null;
   aiFeedback?: unknown;
 };
@@ -79,6 +83,40 @@ function formatStatus(status: FileStatus) {
 function formatDate(input: string | Date) {
   const date = input instanceof Date ? input : new Date(input);
   return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("pt-BR");
+}
+
+function formatAiStatus(aiStatus: StudentReviewFile["aiStatus"]) {
+  switch (aiStatus) {
+    case "QUEUED":
+      return {
+        label: "IA",
+        title: "A análise da IA está na fila",
+        className:
+          "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+      };
+    case "PROCESSING":
+      return {
+        label: "IA",
+        title: "A análise da IA está em andamento",
+        className:
+          "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+      };
+    case "COMPLETED":
+      return {
+        label: "IA",
+        title: "A análise da IA foi concluída",
+        className:
+          "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+      };
+    case "FAILED":
+      return {
+        label: "IA",
+        title: "A análise da IA falhou",
+        className: "border-destructive/40 bg-destructive/10 text-destructive",
+      };
+    default:
+      return null;
+  }
 }
 
 function stringifyAiFeedback(aiFeedback: unknown) {
@@ -123,16 +161,55 @@ function getAiHoursPlaceholder(file: StudentReviewFile) {
 
 function getAiFeedbackPlaceholder(file: StudentReviewFile) {
   if (file.aiStatus !== "COMPLETED") return null;
+  if (file.aiDecision !== "REJECTED") return null;
   return stringifyAiFeedback(file.aiFeedback);
 }
 
+function getAiSuggestedTitle(file: StudentReviewFile) {
+  if (file.aiStatus !== "COMPLETED") return null;
+  const title = file.aiSuggestedTitle?.trim();
+  return title?.length ? title : null;
+}
+
 type ReviewFormState = {
-  decision: "allow" | "deny";
-  valuedHours: number;
+  decision: "allow" | "deny" | null;
+  valuedHours: number | null;
   commentary: string;
 };
 
-const HOURS_OPTIONS = Array.from({ length: 101 }, (_, i) => i);
+function toDecisionFromCertificateStatus(status: FileStatus) {
+  if (status === "APROVADO") return "allow" as const;
+  if (status === "REJEITADO") return "deny" as const;
+  return null;
+}
+
+function toDecisionFromAiDecision(file: StudentReviewFile) {
+  if (file.aiStatus !== "COMPLETED") return null;
+  if (file.aiDecision === "APPROVED") return "allow" as const;
+  if (file.aiDecision === "REJECTED") return "deny" as const;
+  return null;
+}
+
+function getInitialReviewState(file: StudentReviewFile): ReviewFormState {
+  const isReviewed = file.status !== "PENDENTE";
+
+  if (isReviewed) {
+    return {
+      decision: toDecisionFromCertificateStatus(file.status),
+      valuedHours: Math.max(0, Math.min(100, file.hours)),
+      commentary: file.status === "REJEITADO" ? (file.feedback ?? "") : "",
+    };
+  }
+
+  const aiSuggestedHours = getAiHoursPlaceholder(file);
+  const aiDecision = toDecisionFromAiDecision(file);
+  return {
+    decision: aiDecision,
+    valuedHours: aiSuggestedHours !== null ? null : 0,
+    commentary:
+      aiDecision === "deny" ? (getAiFeedbackPlaceholder(file) ?? "") : "",
+  };
+}
 
 export function AdminDialog({
   open,
@@ -157,12 +234,7 @@ export function AdminDialog({
 
     const nextState: Record<string, ReviewFormState> = {};
     for (const file of student.files) {
-      const clampedHours = Math.max(0, Math.min(100, file.hours));
-      nextState[file.id] = {
-        decision: "allow",
-        valuedHours: clampedHours,
-        commentary: "",
-      };
+      nextState[file.id] = getInitialReviewState(file);
     }
 
     setReviewStateByFileId(nextState);
@@ -179,7 +251,7 @@ export function AdminDialog({
     (fileId: string, updater: (prev: ReviewFormState) => ReviewFormState) => {
       setReviewStateByFileId((prev) => {
         const current = prev[fileId] ?? {
-          decision: "allow" as const,
+          decision: null,
           valuedHours: 0,
           commentary: "",
         };
@@ -197,10 +269,28 @@ export function AdminDialog({
       const state = reviewStateByFileId[file.id];
       if (!state) return;
 
+      if (file.status !== "PENDENTE") {
+        notify.info(
+          "Arquivo já revisado",
+          "Este certificado já foi validado por um administrador.",
+        );
+        return;
+      }
+
+      if (state.decision === null) {
+        notify.warning(
+          "Decisão obrigatória",
+          "Selecione Aprovar ou Negar antes de salvar.",
+        );
+        return;
+      }
+
       if (
-        !Number.isFinite(state.valuedHours) ||
-        state.valuedHours < 0 ||
-        state.valuedHours > 100
+        state.decision === "allow" &&
+        (state.valuedHours === null ||
+          !Number.isFinite(state.valuedHours) ||
+          state.valuedHours < 0 ||
+          state.valuedHours > 100)
       ) {
         notify.error(
           "Horas inválidas",
@@ -209,7 +299,10 @@ export function AdminDialog({
         return;
       }
 
-      if (state.decision === "deny" && !state.commentary.trim()) {
+      const finalCommentary =
+        state.commentary.trim() || getAiFeedbackPlaceholder(file) || "";
+
+      if (state.decision === "deny" && !finalCommentary) {
         notify.warning(
           "Justificativa obrigatória",
           "Adicione uma justificativa quando o arquivo for negado.",
@@ -223,10 +316,18 @@ export function AdminDialog({
           await onReview({
             id: file.id,
             decision: state.decision,
-            hours: state.valuedHours,
-            commentary: state.commentary.trim() || undefined,
+            hours: state.decision === "allow" ? (state.valuedHours ?? 0) : 0,
+            commentary: finalCommentary || undefined,
           });
         } else if (state.decision === "allow") {
+          // O código anterior para onApprove e onReject foi movido para dentro do onReview
+          // para centralizar a lógica e permitir a atualização local do estado.
+          // Esta parte do código pode ser removida se a migração para onReview for completa.
+          // Por enquanto, manteremos a lógica de atualização local aqui também.
+          updateFileState(file.id, (prev) => ({
+            ...prev,
+            status: "APROVADO",
+          }));
           if (!onApprove) {
             notify.info(
               "Ação indisponível",
@@ -236,6 +337,11 @@ export function AdminDialog({
           }
           await onApprove(file.id);
         } else {
+          // Atualiza o estado local para "REJEITADO"
+          updateFileState(file.id, (prev) => ({
+            ...prev,
+            status: "REJEITADO",
+          }));
           if (!onReject) {
             notify.info(
               "Ação indisponível",
@@ -245,6 +351,16 @@ export function AdminDialog({
           }
           await onReject(file.id);
         }
+
+        // Atualiza o estado local do arquivo para refletir a avaliação
+        updateFileState(file.id, (prev) => ({
+          ...prev,
+          // @ts-expect-error - decision is "allow" or "deny"
+          status: state.decision === "allow" ? "APROVADO" : "REJEITADO",
+          hours: state.valuedHours ?? file.hours,
+          feedback: finalCommentary || file.feedback,
+        }));
+
         notify.success(
           state.decision === "allow" ? "Arquivo aprovado" : "Arquivo rejeitado",
           `${file.title} foi avaliado com sucesso.`,
@@ -356,11 +472,12 @@ export function AdminDialog({
               <Accordion type="single" collapsible>
                 {student.files.map((file) => {
                   const status = formatStatus(file.status);
-                  const state = reviewStateByFileId[file.id] ?? {
-                    decision: "allow" as const,
-                    valuedHours: Math.max(0, Math.min(100, file.hours)),
-                    commentary: "",
-                  };
+                  const isReviewed = file.status !== "PENDENTE";
+                  const aiStatus = formatAiStatus(file.aiStatus);
+                  const aiSuggestedTitle = getAiSuggestedTitle(file);
+                  const aiHoursPlaceholder = getAiHoursPlaceholder(file);
+                  const state =
+                    reviewStateByFileId[file.id] ?? getInitialReviewState(file);
                   const isDenied = state.decision === "deny";
                   const isSaving = savingByFileId[file.id] === true;
 
@@ -368,13 +485,33 @@ export function AdminDialog({
                     <AccordionItem key={file.id} value={file.id}>
                       <AccordionTrigger>
                         <div className="flex w-full flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-                          <span className="truncate font-medium">
-                            {file.title}
-                          </span>
+                          <div className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">
+                              {file.title}
+                            </span>
+                            {aiSuggestedTitle ? (
+                              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                {aiSuggestedTitle}
+                              </span>
+                            ) : null}
+                          </div>
                           <div className="flex items-center gap-2 sm:gap-3">
                             <span className="text-xs text-muted-foreground">
                               {formatDate(file.createdAt)}
                             </span>
+                            {aiStatus ? (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "gap-1 border-dashed",
+                                  aiStatus.className,
+                                )}
+                                title={aiStatus.title}
+                              >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                {aiStatus.label}
+                              </Badge>
+                            ) : null}
                             <Badge variant={status.variant}>
                               {status.label}
                             </Badge>
@@ -398,8 +535,9 @@ export function AdminDialog({
                                 Decisao
                               </span>
                               <RadioGroup
-                                value={state.decision}
+                                value={state.decision ?? undefined}
                                 onValueChange={(value) => {
+                                  if (isReviewed) return;
                                   if (value !== "allow" && value !== "deny")
                                     return;
                                   updateFileState(file.id, (prev) => ({
@@ -410,12 +548,13 @@ export function AdminDialog({
                                   }));
                                 }}
                                 className="grid grid-cols-2 gap-2 sm:gap-3"
+                                disabled={isReviewed}
                               >
-                                <label className="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                                <label className="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm disabled:opacity-70">
                                   <RadioGroupItem value="allow" />
                                   Aprovar
                                 </label>
-                                <label className="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                                <label className="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm disabled:opacity-70">
                                   <RadioGroupItem value="deny" />
                                   Negar
                                 </label>
@@ -426,35 +565,48 @@ export function AdminDialog({
                               <label className="text-sm font-medium">
                                 Horas validadas
                               </label>
-                              <Select
-                                value={String(state.valuedHours)}
-                                onValueChange={(value) => {
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                className="min-h-11"
+                                inputMode="numeric"
+                                placeholder={
+                                  aiHoursPlaceholder !== null
+                                    ? String(aiHoursPlaceholder)
+                                    : "Horas"
+                                }
+                                value={
+                                  state.valuedHours === null
+                                    ? ""
+                                    : String(state.valuedHours)
+                                }
+                                disabled={isReviewed}
+                                onKeyDown={(event) => {
+                                  if (
+                                    event.key === "e" ||
+                                    event.key === "E" ||
+                                    event.key === "+" ||
+                                    event.key === "-"
+                                  ) {
+                                    event.preventDefault();
+                                  }
+                                }}
+                                onChange={(event) => {
+                                  if (isReviewed) return;
+                                  const value = event.target.value;
                                   const parsed = Number(value);
                                   updateFileState(file.id, (prev) => ({
                                     ...prev,
-                                    valuedHours: Number.isFinite(parsed)
-                                      ? parsed
-                                      : 0,
+                                    valuedHours:
+                                      value.trim().length === 0
+                                        ? null
+                                        : Number.isFinite(parsed)
+                                          ? parsed
+                                          : null,
                                   }));
                                 }}
-                              >
-                                <SelectTrigger className="min-h-11 w-full rounded-md">
-                                  <SelectValue
-                                    placeholder={
-                                      getAiHoursPlaceholder(file) !== null
-                                        ? `Sugestão IA: ${getAiHoursPlaceholder(file)}h`
-                                        : "Horas"
-                                    }
-                                  />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {HOURS_OPTIONS.map((hour) => (
-                                    <SelectItem key={hour} value={String(hour)}>
-                                      {hour}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              />
                             </div>
                           </div>
 
@@ -473,14 +625,16 @@ export function AdminDialog({
                                 </label>
                                 <textarea
                                   className="min-h-28 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-                                  disabled={!isDenied}
+                                  disabled={isReviewed || !isDenied}
                                   placeholder={
+                                    !isReviewed &&
                                     getAiFeedbackPlaceholder(file)
-                                      ? `Sugestão IA: ${getAiFeedbackPlaceholder(file)}`
+                                      ? (getAiFeedbackPlaceholder(file) ?? "")
                                       : "Explique o motivo da negacao..."
                                   }
                                   value={state.commentary}
                                   onChange={(event) => {
+                                    if (isReviewed) return;
                                     updateFileState(file.id, (prev) => ({
                                       ...prev,
                                       commentary: event.target.value,
@@ -494,8 +648,8 @@ export function AdminDialog({
                           <div className="flex w-full justify-end border-t pt-4">
                             <Button
                               size="sm"
-                              intent={isDenied ? "danger" : "primary"}
-                              disabled={isSaving}
+                              intent="primary"
+                              disabled={isSaving || isReviewed}
                               onClick={() => handleSubmitReview(file)}
                               className="min-h-11 w-full gap-2 sm:w-auto sm:min-w-40"
                             >
@@ -504,10 +658,15 @@ export function AdminDialog({
                                   <LoaderCircle className="h-4 w-4 animate-spin" />
                                   Salvando...
                                 </>
+                              ) : isReviewed ? (
+                                <>
+                                  <Save className="h-4 w-4" />
+                                  Revisado
+                                </>
                               ) : (
                                 <>
                                   <Save className="h-4 w-4" />
-                                  Salvar avaliacao
+                                  Salvar
                                 </>
                               )}
                             </Button>
