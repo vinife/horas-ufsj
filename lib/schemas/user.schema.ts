@@ -33,6 +33,7 @@ export const updateUserStatusSchema = z.object({
   role: managedRoleSchema.optional(),
   canManageComplementar: z.boolean().optional(),
   canManageExtensao: z.boolean().optional(),
+  canManageEstagio: z.boolean().optional(),
   canManageUsers: z.boolean().optional(),
   reason: z.string().trim().max(280).optional(),
 });

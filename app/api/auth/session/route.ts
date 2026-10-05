@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       accessStatus: true,
       canManageComplementar: true,
       canManageExtensao: true,
+      canManageEstagio: true,
       canManageUsers: true,
     },
   });

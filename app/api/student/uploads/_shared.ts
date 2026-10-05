@@ -1,4 +1,12 @@
 import { db } from "@/lib/db";
+import {
+  ensureChildFolder,
+  ensureStudentFolder,
+  getDriveClient,
+  getDriveFileIdFromUrl,
+  getErrorMessage,
+  removeFileFromDrive,
+} from "@/lib/drive";
 import { enqueueCertificate } from "@/lib/queue";
 import {
   deleteUploadQuerySchema,
@@ -9,7 +17,6 @@ import { getSession } from "@/lib/session";
 import { validateFormData } from "@/lib/validators/validate-form-data";
 import { validateQueryParams } from "@/lib/validators/validate-request";
 import type { CertificateType, Prisma } from "@prisma/client";
-import { google } from "googleapis";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { Readable } from "node:stream";
@@ -40,255 +47,6 @@ function toCertificateType(uploadType: UploadType) {
 
 function toTypeFolderName(uploadType: UploadType) {
   return uploadType === "extensao" ? "Extensao" : "Complementar";
-}
-
-function getServiceAccountCredentials() {
-  const json = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  const base64 = process.env.GOOGLE_SERVICE_ACCOUNT_BASE64;
-
-  if (json) {
-    return JSON.parse(json);
-  }
-  if (base64) {
-    const decoded = Buffer.from(base64, "base64").toString("utf-8");
-    return JSON.parse(decoded);
-  }
-  throw new Error(
-    "Missing GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_BASE64",
-  );
-}
-
-function toSafeFolderName(name: string) {
-  return name
-    .trim()
-    .replace(/[\\/:*?"<>|#%]/g, "-")
-    .slice(0, 120);
-}
-
-function getErrorStatus(error: unknown) {
-  if (typeof error !== "object" || error === null) {
-    return null;
-  }
-
-  if ("status" in error && typeof error.status === "number") {
-    return error.status;
-  }
-
-  if (
-    "response" in error &&
-    typeof error.response === "object" &&
-    error.response !== null &&
-    "status" in error.response &&
-    typeof error.response.status === "number"
-  ) {
-    return error.response.status;
-  }
-
-  return null;
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Erro desconhecido.";
-}
-
-function getDriveFileIdFromUrl(fileUrl: string) {
-  try {
-    const url = new URL(fileUrl);
-    const idFromQuery = url.searchParams.get("id")?.trim();
-    if (idFromQuery) {
-      return idFromQuery;
-    }
-
-    const match =
-      url.pathname.match(/\/file\/d\/([^/]+)/) ??
-      url.pathname.match(/\/d\/([^/]+)/);
-
-    return match?.[1] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function removeFileFromDrive(
-  drive: ReturnType<typeof google.drive>,
-  fileId: string,
-) {
-  const file = await drive.files.get({
-    fileId,
-    supportsAllDrives: true,
-    fields: "id, trashed, capabilities(canDelete, canTrash)",
-  });
-
-  if (file.data.trashed) {
-    return;
-  }
-
-  const canDelete = file.data.capabilities?.canDelete === true;
-  const canTrash = file.data.capabilities?.canTrash === true;
-
-  if (canDelete) {
-    try {
-      await drive.files.delete({
-        fileId,
-        supportsAllDrives: true,
-      });
-      return;
-    } catch (error) {
-      if (!canTrash) {
-        throw error;
-      }
-    }
-  }
-
-  if (!canTrash) {
-    throw new Error(
-      "A conta de servico consegue acessar o arquivo, mas nao tem permissao para excluir nem mover para a lixeira no Google Drive.",
-    );
-  }
-
-  try {
-    await drive.files.update({
-      fileId,
-      requestBody: { trashed: true },
-      supportsAllDrives: true,
-      fields: "id, trashed",
-    });
-  } catch (error) {
-    const status = getErrorStatus(error);
-
-    if (status === 404) {
-      throw new Error(
-        "Arquivo nao encontrado no Google Drive para mover para a lixeira. Verifique as permissoes da conta de servico.",
-      );
-    }
-
-    throw new Error(
-      "Nao foi possivel remover o arquivo do Google Drive. Verifique se a conta de servico tem permissao para excluir ou mover o item para a lixeira no Shared Drive.",
-    );
-  }
-}
-
-async function getDriveClient() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: getServiceAccountCredentials(),
-    scopes: ["https://www.googleapis.com/auth/drive.file"],
-  });
-
-  return google.drive({ version: "v3", auth });
-}
-
-type DriveParentContext = {
-  id: string;
-  sharedDriveId?: string;
-};
-
-function getConfiguredSharedDriveId() {
-  const sharedDriveId = process.env.GOOGLE_DRIVE_SHARED_DRIVE_ID?.trim();
-  return sharedDriveId || undefined;
-}
-
-function looksLikeSharedDriveId(id: string) {
-  return /^0A[A-Za-z0-9_-]+$/.test(id);
-}
-
-async function resolveDriveParent(
-  drive: ReturnType<typeof google.drive>,
-  id: string,
-): Promise<DriveParentContext> {
-  if (id === "root") {
-    return { id };
-  }
-
-  const configuredSharedDriveId = getConfiguredSharedDriveId();
-
-  try {
-    const file = await drive.files.get({
-      fileId: id,
-      fields: "id, driveId",
-      supportsAllDrives: true,
-    });
-
-    return {
-      id,
-      sharedDriveId: file.data.driveId ?? configuredSharedDriveId,
-    };
-  } catch (error) {
-    if (getErrorStatus(error) !== 404) {
-      throw error;
-    }
-  }
-
-  // Inference: IDs starting with 0A are commonly Shared Drive IDs.
-  const inferredSharedDriveId =
-    configuredSharedDriveId ?? (looksLikeSharedDriveId(id) ? id : undefined);
-
-  return {
-    id,
-    sharedDriveId: inferredSharedDriveId,
-  };
-}
-
-async function ensureStudentFolder(
-  drive: ReturnType<typeof google.drive>,
-  name: string,
-) {
-  const parentFolderId = process.env.GOOGLE_DRIVE_STUDENTS_FOLDER_ID || "root";
-  const parent = await resolveDriveParent(drive, parentFolderId);
-  return ensureChildFolder(drive, parent, name);
-}
-
-async function ensureChildFolder(
-  drive: ReturnType<typeof google.drive>,
-  parent: DriveParentContext,
-  name: string,
-) {
-  const safeName = toSafeFolderName(name);
-  const query = [
-    "mimeType = 'application/vnd.google-apps.folder'",
-    `name = '${safeName.replace(/'/g, "\\'")}'`,
-    `'${parent.id}' in parents`,
-    "trashed = false",
-  ].join(" and ");
-
-  const existing = await drive.files.list({
-    q: query,
-    fields: "files(id, name)",
-    supportsAllDrives: true,
-    includeItemsFromAllDrives: true,
-    ...(parent.sharedDriveId
-      ? {
-          driveId: parent.sharedDriveId,
-          corpora: "drive" as const,
-        }
-      : {}),
-  });
-
-  if (existing.data.files && existing.data.files.length > 0) {
-    return {
-      id: existing.data.files[0].id as string,
-      sharedDriveId: parent.sharedDriveId,
-    };
-  }
-
-  const created = await drive.files.create({
-    requestBody: {
-      name: safeName,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [parent.id],
-    },
-    fields: "id",
-    supportsAllDrives: true,
-    // includeItemsFromAllDrives: true,
-  });
-
-  return {
-    id: created.data.id as string,
-    sharedDriveId: parent.sharedDriveId,
-  };
 }
 
 export function createUploadHandlers(uploadType: UploadType) {
@@ -467,25 +225,11 @@ export function createUploadHandlers(uploadType: UploadType) {
       fields: "id, webViewLink",
     });
 
-    if (uploaded.data.id) {
-      try {
-        await drive.permissions.create({
-          fileId: uploaded.data.id,
-          supportsAllDrives: true, // Crucial para Shared Drives institucionais da UFSJ
-          requestBody: {
-            role: "reader", // Papel de visualizador (leitor)
-            type: "anyone", // Qualquer pessoa com o link
-          },
-        });
-      } catch (permError) {
-        // Captura o erro isoladamente para que o upload principal não quebre
-        // caso as políticas centrais da UFSJ bloqueiem links públicos
-        console.error(
-          "[Drive Permission Error]: Falha ao tornar o link público. Verifique as políticas do Workspace UFSJ.",
-          permError,
-        );
-      }
-    }
+    // Não tentamos mais tornar o arquivo público ("anyone with the link") —
+    // a política do Workspace institucional da UFSJ bloqueia isso em Shared
+    // Drives. O arquivo é servido via app/api/files/certificate/[id]/route.ts,
+    // que baixa os bytes usando a conta de serviço (que já tem acesso
+    // garantido) e aplica o próprio controle de acesso da aplicação.
 
     const created = await db.certificate.create({
       data: {

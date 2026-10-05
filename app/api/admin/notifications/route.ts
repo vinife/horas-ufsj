@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
       accessStatus: true,
       canManageComplementar: true,
       canManageExtensao: true,
+      canManageEstagio: true,
       canManageUsers: true,
     },
   });
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [complementar, extensao, usuarios] = await Promise.all([
+  const [complementar, extensao, estagio, usuarios] = await Promise.all([
     adminUser.canManageComplementar
       ? db.certificate.count({
           where: {
@@ -45,6 +46,13 @@ export async function GET(request: NextRequest) {
       ? db.certificate.count({
           where: {
             certificatetype: "EXTENSAO",
+            status: "PENDING",
+          },
+        })
+      : Promise.resolve(0),
+    adminUser.canManageEstagio
+      ? db.internship.count({
+          where: {
             status: "PENDING",
           },
         })
@@ -62,6 +70,7 @@ export async function GET(request: NextRequest) {
     {
       complementar,
       extensao,
+      estagio,
       usuarios,
     },
     { status: 200 },

@@ -11,6 +11,7 @@ export type ManagedUser = {
   permissions: {
     canManageComplementar: boolean;
     canManageExtensao: boolean;
+    canManageEstagio: boolean;
     canManageUsers: boolean;
   };
 };

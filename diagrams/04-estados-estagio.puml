@@ -1,0 +1,23 @@
+@startuml 04-estados-estagio
+title Ciclo de Vida de um Estágio (Internship)
+
+[*] --> PENDING : Aluno envia\nsubmissão INITIAL
+
+PENDING --> REJECTED : Admin rejeita\nsubmissão
+PENDING --> ACTIVE : Admin aprova\nsubmissão inicial
+
+ACTIVE --> ACTIVE : Nova submissão\nEXTENSION (prorrogação)
+ACTIVE --> COMPLETED : Estágio concluído\nno prazo
+ACTIVE --> TERMINATED : Estágio encerrado\nantecipadamente
+
+REJECTED --> [*]
+COMPLETED --> [*]
+TERMINATED --> [*]
+
+note right of ACTIVE
+  Cada prorrogação gera uma nova
+  InternshipSubmission (kind=EXTENSION)
+  vinculada ao mesmo Internship.
+end note
+
+@enduml

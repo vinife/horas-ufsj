@@ -14,8 +14,9 @@ export function Button({
   const intentStyles = {
     primary: "bg-primary text-primary-foreground hover:opacity-90",
     secondary:
-      "bg-secondary text-secondary-foreground hover:text-destructive hover:bg-secondary",
-    danger: "bg-destructive text-destructive-foreground hover:opacity-90",
+      "bg-secondary text-secondary-foreground hover:text-secondary-foreground/90 hover:bg-primary/20",
+    danger:
+      "bg-destructive text-destructive-foreground hover:bg-destructive/80 hover:text-accent-foreground",
     tertiary:
       "border-2 border-primary bg-transparent text-primary hover:bg-destructive hover:text-accent-foreground",
   };

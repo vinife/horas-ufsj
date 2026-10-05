@@ -1,0 +1,43 @@
+@startuml 06-casos-de-uso
+title Casos de Uso
+
+left to right direction
+
+actor Aluno
+actor Administrador
+
+rectangle "Sistema horas-ufsj" {
+  usecase "Autenticar-se" as UC0
+  usecase "Enviar certificado\n(extensão/complementar)" as UC1
+  usecase "Acompanhar status\nde solicitações" as UC2
+  usecase "Enviar submissão\nde estágio (inicial)" as UC3
+  usecase "Solicitar prorrogação\nde estágio" as UC4
+  usecase "Receber notificações" as UC5
+
+  usecase "Revisar certificado\n(ver sugestão da IA)" as UC6
+  usecase "Aprovar/Rejeitar\ncertificado" as UC7
+  usecase "Revisar submissão\nde estágio" as UC8
+  usecase "Aprovar/Rejeitar\nestágio" as UC9
+  usecase "Gerenciar usuários\ne permissões" as UC10
+  usecase "Configurar limites\nde horas" as UC11
+}
+
+Aluno --> UC0
+Aluno --> UC1
+Aluno --> UC2
+Aluno --> UC3
+Aluno --> UC4
+Aluno --> UC5
+
+Administrador --> UC0
+Administrador --> UC6
+Administrador --> UC7
+Administrador --> UC8
+Administrador --> UC9
+Administrador --> UC10
+Administrador --> UC11
+
+UC1 ..> UC0 : <<include>>
+UC7 ..> UC6 : <<extend>>
+
+@enduml

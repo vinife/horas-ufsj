@@ -1,3 +1,4 @@
+import { ComplementarHourType } from "@prisma/client";
 import { z } from "zod";
 import {
   pageNumberSchema,
@@ -24,7 +25,7 @@ export const uploadAccept = {
 } as const;
 export const MAX_UPLOAD_SIZE_BYTES = 25_000_000;
 
-const fileSchema = z
+export const fileSchema = z
   .custom<File>((value): value is File => value instanceof File, {
     message: "Arquivo inválido.",
   })
@@ -92,6 +93,7 @@ export const reviewCertificateSchema = z
       return undefined;
     }, z.number().int().min(0).max(120)),
     commentary: trimmedString.max(1000).optional(),
+    complementarHourType: z.nativeEnum(ComplementarHourType).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.decision === "deny" && !value.commentary?.trim()) {

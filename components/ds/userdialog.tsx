@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import type { ManagedAccessStatus, ManagedUser } from "./users-types";
 
@@ -30,6 +31,7 @@ type UserDialogProps = {
     role: "ADMIN" | "STUDENT";
     canManageComplementar?: boolean;
     canManageExtensao?: boolean;
+    canManageEstagio?: boolean;
     canManageUsers?: boolean;
   }) => Promise<void>;
 };
@@ -45,6 +47,7 @@ export function UserDialog({
   const [canManageComplementar, setCanManageComplementar] =
     React.useState(false);
   const [canManageExtensao, setCanManageExtensao] = React.useState(false);
+  const [canManageEstagio, setCanManageEstagio] = React.useState(false);
   const [canManageUsers, setCanManageUsers] = React.useState(false);
 
   React.useEffect(() => {
@@ -52,6 +55,7 @@ export function UserDialog({
     setStatus(user.accessStatus);
     setCanManageComplementar(user.permissions.canManageComplementar);
     setCanManageExtensao(user.permissions.canManageExtensao);
+    setCanManageEstagio(user.permissions.canManageEstagio);
     setCanManageUsers(user.permissions.canManageUsers);
   }, [open, user]);
 
@@ -64,10 +68,17 @@ export function UserDialog({
     return PERMISSION_KEYS.filter((key) => {
       if (key === "canManageComplementar") return canManageComplementar;
       if (key === "canManageExtensao") return canManageExtensao;
+      if (key === "canManageEstagio") return canManageEstagio;
       if (key === "canManageUsers") return canManageUsers;
       return false;
     });
-  }, [isAdmin, canManageComplementar, canManageExtensao, canManageUsers]);
+  }, [
+    isAdmin,
+    canManageComplementar,
+    canManageExtensao,
+    canManageEstagio,
+    canManageUsers,
+  ]);
 
   const handleSave = async () => {
     if (!user) return;
@@ -80,6 +91,7 @@ export function UserDialog({
         ? {
             canManageComplementar,
             canManageExtensao,
+            canManageEstagio,
             canManageUsers,
           }
         : {}),
@@ -180,6 +192,21 @@ export function UserDialog({
 
                 <div className="flex items-center justify-between gap-3">
                   <div>
+                    <p className="text-sm">Gerenciar Estágio</p>
+                    <p className="text-xs text-muted-foreground">
+                      Libera a aba e os cards de Estágio.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={canManageEstagio}
+                    onCheckedChange={setCanManageEstagio}
+                    disabled={isSaving || status === "REJECTED"}
+                    aria-label="Permissão de estágio"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <div>
                     <p className="text-sm">Gerenciar Usuários</p>
                     <p className="text-xs text-muted-foreground">
                       Permite aprovar, bloquear e editar outros usuários.
@@ -205,8 +232,20 @@ export function UserDialog({
           >
             Cancelar
           </Button>
-          <Button intent="primary" onClick={handleSave} disabled={saveDisabled}>
-            {isSaving ? "Salvando..." : "Salvar alterações"}
+          <Button
+            intent="primary"
+            onClick={handleSave}
+            disabled={saveDisabled}
+            className="gap-2"
+          >
+            {isSaving ? (
+              <>
+                <Spinner className="h-4 w-4" />
+                Salvando...
+              </>
+            ) : (
+              "Salvar alterações"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

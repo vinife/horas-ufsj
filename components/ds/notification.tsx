@@ -64,6 +64,7 @@ export function Notifications() {
       position="top-right"
       expand
       duration={4500}
+      offset={{ top: 76 }}
     />
   )
 }

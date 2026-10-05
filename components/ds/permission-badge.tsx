@@ -4,6 +4,7 @@ export const PERMISSION_KEYS = [
   "canManageUsers",
   "canManageExtensao",
   "canManageComplementar",
+  "canManageEstagio",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -15,6 +16,7 @@ const PERMISSION_META: Record<
   canManageUsers: { label: "Usuários", icon: Users },
   canManageExtensao: { label: "Extensão", letter: "E" },
   canManageComplementar: { label: "Complementar", letter: "C" },
+  canManageEstagio: { label: "Estágio", letter: "S" },
 };
 
 type PermissionBadgeProps = {

@@ -6,6 +6,7 @@ import { parseAsString, useQueryState } from "nuqs";
 import { AdminCard } from "@/components/ds/admincard";
 import { Card } from "@/components/ds/card";
 import { Header } from "@/components/ds/header";
+import { InternshipAdminCard } from "@/components/ds/internship-admin-card";
 import { UsersCard } from "@/components/ds/userscard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/lib/auth-store";
@@ -22,6 +23,12 @@ const TABS = [
     label: "Extensão",
     permission: "canManageExtensao",
     notificationKey: "extensao",
+  },
+  {
+    id: "Estágio",
+    label: "Estágio",
+    permission: "canManageEstagio",
+    notificationKey: "estagio",
   },
   {
     id: "Usuarios",
@@ -53,6 +60,7 @@ async function fetchAdminNotificationCounts(): Promise<AdminNotificationCounts> 
   return {
     complementar: payload.complementar ?? 0,
     extensao: payload.extensao ?? 0,
+    estagio: payload.estagio ?? 0,
     usuarios: payload.usuarios ?? 0,
   };
 }
@@ -186,6 +194,7 @@ export default function AdminDashboardPage() {
             <AdminCard
               title="Comprovantes de Atividades Complementar"
               endpoint="/api/admin/uploads/complementar"
+              uploadType="complementar"
               className="m-0 h-full"
             />
           )}
@@ -193,6 +202,13 @@ export default function AdminDashboardPage() {
             <AdminCard
               title="Comprovantes de Atividades de Extensão"
               endpoint="/api/admin/uploads/extensao"
+              uploadType="extensao"
+              className="m-0 h-full"
+            />
+          )}
+          {activeTabId === "Estágio" && (
+            <InternshipAdminCard
+              title="Estágios em andamento"
               className="m-0 h-full"
             />
           )}

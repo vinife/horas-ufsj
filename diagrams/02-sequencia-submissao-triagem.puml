@@ -1,0 +1,42 @@
+@startuml 02-sequencia-submissao-triagem
+title Fluxo de Submissão e Triagem por IA de um Certificado
+
+actor Aluno
+participant "Frontend\n(Next.js)" as FE
+participant "API\n(/api/student/uploads)" as API
+database "PostgreSQL" as DB
+queue "Redis (BullMQ)" as Queue
+participant "Worker Python" as Worker
+participant "Google Drive" as Drive
+participant "Gemini API" as Gemini
+actor Admin
+
+Aluno -> FE : Envia certificado (arquivo + dados)
+FE -> API : POST /uploads
+API -> Drive : Upload do arquivo
+Drive --> API : fileId, fileUrl
+API -> DB : Cria Certificate\n(status=PENDING, aiStatus=QUEUED)
+API -> Queue : Enfileira job (certificate_id)
+API --> FE : 201 Created
+FE --> Aluno : Confirmação de envio
+
+Queue -> Worker : Job disponível
+Worker -> DB : set aiStatus=PROCESSING
+Worker -> Drive : download_file(fileId)
+Drive --> Worker : bytes do arquivo
+Worker -> Gemini : analyze_certificate_file()
+Gemini --> Worker : valid, category, title,\nhours, reasons
+Worker -> DB : update aiStatus=COMPLETED,\naiDecision, aiSuggestedTitle,\naiSuggestedHours, aiFeedback
+
+Admin -> FE : Acessa painel de revisão
+FE -> API : GET /admin/uploads
+API -> DB : Busca certificados + sugestão da IA
+DB --> API : Lista de certificados
+API --> FE : Dados para revisão
+Admin -> FE : Aprova/Rejeita (decisão final)
+FE -> API : PATCH /admin/uploads/:id
+API -> DB : Atualiza status final\n+ feedback humano
+API --> FE : Confirmação
+FE --> Aluno : Notificação de status atualizado
+
+@enduml

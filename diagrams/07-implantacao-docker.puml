@@ -1,0 +1,40 @@
+@startuml 07-implantacao-docker
+title Diagrama de Implantação (Docker)
+
+node "Servidor de Produção" {
+  node "Container: ufsj_web" as Web {
+    component "Next.js App\n(porta 3000)" as WebApp
+  }
+
+  node "Container: ufsj_postgres" as Postgres {
+    database "PostgreSQL 16" as PG
+  }
+
+  node "Container: ufsj_redis" as Redis {
+    queue "Redis 7" as RedisQ
+  }
+
+  node "Worker Python\n(fora do docker-compose atual)" as WorkerNode #LightYellow {
+    component "worker-ia" as WorkerApp
+  }
+}
+
+cloud "Google Drive API" as Drive
+cloud "Gemini API" as Gemini
+
+WebApp --> PG : DATABASE_URL
+WebApp --> RedisQ : REDIS_URL (enfileira jobs)
+WorkerApp --> RedisQ : consome jobs
+WorkerApp --> PG : atualiza certificados\n(conexão direta)
+WorkerApp --> Drive : download de arquivos
+WorkerApp --> Gemini : análise de certificados
+WebApp --> Drive : upload de arquivos
+
+note bottom of WorkerNode
+  Observação: o docker-compose.yml atual
+  só define web, postgres e redis.
+  O worker-ia ainda roda fora do compose
+  (gap de infraestrutura a ser resolvido).
+end note
+
+@enduml

@@ -1,16 +1,10 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
-import {
-  ArrowLeft,
-  Eye,
-  ImageOff,
-  LoaderCircle,
-  Save,
-  Sparkles,
-} from "lucide-react";
+import type { ComplementarHourType } from "@prisma/client";
+import { Save, Sparkles } from "lucide-react";
 import { notify } from "@/components/ds/notification";
+import { FileViewer } from "@/components/ds/file-viewer";
 import { Badge } from "@/components/ui/badge";
 import {
   Accordion,
@@ -28,6 +22,15 @@ import {
 import { Button } from "@/components/ds/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
+import { COMPLEMENTAR_HOUR_TYPE_OPTIONS } from "@/lib/constants/complementar-hour-types";
 import { cn } from "@/lib/utils";
 
 type FileStatus = "PENDENTE" | "APROVADO" | "REJEITADO";
@@ -45,6 +48,7 @@ export type StudentReviewFile = {
   aiSuggestedTitle?: string | null;
   aiSuggestedHours?: number | null;
   aiFeedback?: unknown;
+  complementarHourType?: ComplementarHourType | null;
 };
 
 export type StudentReview = {
@@ -59,6 +63,7 @@ type AdminDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   student: StudentReview | null;
+  uploadType: "complementar" | "extensao";
   onApprove?: (id: string) => void | Promise<void>;
   onReject?: (id: string) => void | Promise<void>;
   onReview?: (payload: {
@@ -66,6 +71,7 @@ type AdminDialogProps = {
     decision: "allow" | "deny";
     hours: number;
     commentary?: string;
+    complementarHourType?: ComplementarHourType;
   }) => void | Promise<void>;
 };
 
@@ -175,6 +181,7 @@ type ReviewFormState = {
   decision: "allow" | "deny" | null;
   valuedHours: number | null;
   commentary: string;
+  hourType: ComplementarHourType | null;
 };
 
 function toDecisionFromCertificateStatus(status: FileStatus) {
@@ -198,6 +205,7 @@ function getInitialReviewState(file: StudentReviewFile): ReviewFormState {
       decision: toDecisionFromCertificateStatus(file.status),
       valuedHours: Math.max(0, Math.min(100, file.hours)),
       commentary: file.status === "REJEITADO" ? (file.feedback ?? "") : "",
+      hourType: file.complementarHourType ?? null,
     };
   }
 
@@ -208,6 +216,7 @@ function getInitialReviewState(file: StudentReviewFile): ReviewFormState {
     valuedHours: aiSuggestedHours !== null ? null : 0,
     commentary:
       aiDecision === "deny" ? (getAiFeedbackPlaceholder(file) ?? "") : "",
+    hourType: file.complementarHourType ?? null,
   };
 }
 
@@ -215,6 +224,7 @@ export function AdminDialog({
   open,
   onOpenChange,
   student,
+  uploadType,
   onApprove,
   onReject,
   onReview,
@@ -225,9 +235,11 @@ export function AdminDialog({
   const [savingByFileId, setSavingByFileId] = React.useState<
     Record<string, boolean>
   >({});
-  const [viewingFile, setViewingFile] =
-    React.useState<StudentReviewFile | null>(null);
-  const [imageError, setImageError] = React.useState(false);
+  const [openFileId, setOpenFileId] = React.useState<string | null>(null);
+  const [renderedFileId, setRenderedFileId] = React.useState<string | null>(
+    null,
+  );
+  const closeTimeoutRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (!open || !student) return;
@@ -243,9 +255,41 @@ export function AdminDialog({
 
   React.useEffect(() => {
     if (open) return;
-    setViewingFile(null);
-    setImageError(false);
+    if (closeTimeoutRef.current !== null) {
+      window.clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setOpenFileId(null);
+    setRenderedFileId(null);
   }, [open]);
+
+  // Keeps the FileViewer (and the two-column split layout) mounted for the
+  // whole accordion-close animation instead of yanking it out the instant
+  // the trigger is clicked — unmounting it synchronously with the click
+  // shrinks the panel's measured height mid-animation, which confuses
+  // Radix's animationend-based Presence tracking and used to require a
+  // second click to actually finish closing.
+  React.useEffect(() => {
+    if (openFileId) {
+      if (closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
+      }
+      setRenderedFileId(openFileId);
+    } else if (renderedFileId !== null) {
+      closeTimeoutRef.current = window.setTimeout(() => {
+        setRenderedFileId(null);
+        closeTimeoutRef.current = null;
+      }, 250);
+    }
+
+    return () => {
+      if (closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openFileId]);
 
   const updateFileState = React.useCallback(
     (fileId: string, updater: (prev: ReviewFormState) => ReviewFormState) => {
@@ -254,6 +298,7 @@ export function AdminDialog({
           decision: null,
           valuedHours: 0,
           commentary: "",
+          hourType: null,
         };
         return {
           ...prev,
@@ -310,6 +355,18 @@ export function AdminDialog({
         return;
       }
 
+      if (
+        uploadType === "complementar" &&
+        state.decision === "allow" &&
+        state.hourType === null
+      ) {
+        notify.error(
+          "Tipo de horas obrigatório",
+          "Selecione o tipo de horas antes de aprovar.",
+        );
+        return;
+      }
+
       setSavingByFileId((prev) => ({ ...prev, [file.id]: true }));
       try {
         if (onReview) {
@@ -318,6 +375,9 @@ export function AdminDialog({
             decision: state.decision,
             hours: state.decision === "allow" ? (state.valuedHours ?? 0) : 0,
             commentary: finalCommentary || undefined,
+            ...(uploadType === "complementar" && state.decision === "allow"
+              ? { complementarHourType: state.hourType ?? undefined }
+              : {}),
           });
         } else if (state.decision === "allow") {
           // O código anterior para onApprove e onReject foi movido para dentro do onReview
@@ -376,159 +436,100 @@ export function AdminDialog({
         setSavingByFileId((prev) => ({ ...prev, [file.id]: false }));
       }
     },
-    [onApprove, onReject, onReview, reviewStateByFileId],
+    [
+      onApprove,
+      onReject,
+      onReview,
+      reviewStateByFileId,
+      uploadType,
+      updateFileState,
+    ],
   );
-
-  const handleOpenFileViewer = React.useCallback((file: StudentReviewFile) => {
-    setImageError(false);
-    setViewingFile(file);
-  }, []);
-
-  const handleCloseFileViewer = React.useCallback(() => {
-    setViewingFile(null);
-    setImageError(false);
-  }, []);
-
-  const viewingFileUrl = viewingFile?.fileUrl?.trim() ?? "";
-  const canRenderImage = viewingFileUrl.length > 0 && !imageError;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={cn(
-          "max-h-[85vh] overflow-y-auto sm:max-w-3xl",
-          viewingFile &&
-            "h-dvh max-h-dvh w-screen max-w-none overflow-hidden rounded-none border-0 p-4 sm:h-auto sm:max-h-[90vh] sm:max-w-[90vw] sm:rounded-lg sm:border sm:p-6 lg:max-w-5xl",
-        )}
-      >
-        {viewingFile ? (
-          <div className="flex h-full min-h-0 flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                intent="secondary"
-                size="sm"
-                className="gap-2"
-                onClick={handleCloseFileViewer}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Voltar
-              </Button>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
-                  {viewingFile.title}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(viewingFile.createdAt)}
-                </p>
-              </div>
-            </div>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>
+            {student?.name ?? "Aluno"}{" "}
+            <span className="text-muted-foreground">
+              ({student?.email ?? "-"})
+            </span>
+          </DialogTitle>
+          <DialogDescription>
+            Arquivos pendentes para revisao.
+          </DialogDescription>
+        </DialogHeader>
 
-            <div className="flex min-h-[calc(100dvh-8rem)] flex-1 items-center justify-center overflow-hidden rounded-lg border bg-muted/20 sm:min-h-[65vh]">
-              {canRenderImage ? (
-                <Image
-                  src={viewingFileUrl}
-                  alt={`Certificado ${viewingFile.title}`}
-                  className="h-[calc(100dvh-8rem)] w-full object-contain sm:h-[65vh]"
-                  onError={() => setImageError(true)}
-                  width={1200}
-                  height={800} /* <-- ADICIONE O HEIGHT AQUI */
-                  unoptimized={viewingFileUrl.includes("drive.google.com")}
-                />
-              ) : (
-                <div className="flex min-h-[60vh] w-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
-                  <ImageOff className="h-10 w-10" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">
-                      Não foi possível carregar a imagem do certificado
-                    </p>
-                    <p className="text-xs">
-                      Verifique se o arquivo possui uma URL válida.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+        {!student || student.files.length === 0 ? (
+          <div className="rounded-md border p-4 text-sm text-muted-foreground">
+            Nenhum arquivo pendente.
           </div>
         ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>
-                {student?.name ?? "Aluno"}{" "}
-                <span className="text-muted-foreground">
-                  ({student?.email ?? "-"})
-                </span>
-              </DialogTitle>
-              <DialogDescription>
-                Arquivos pendentes para revisao.
-              </DialogDescription>
-            </DialogHeader>
+          <Accordion
+            type="single"
+            collapsible
+            value={openFileId ?? ""}
+            onValueChange={(value) => setOpenFileId(value || null)}
+          >
+            {student.files.map((file) => {
+              const status = formatStatus(file.status);
+              const isReviewed = file.status !== "PENDENTE";
+              const aiStatus = formatAiStatus(file.aiStatus);
+              const aiSuggestedTitle = getAiSuggestedTitle(file);
+              const aiHoursPlaceholder = getAiHoursPlaceholder(file);
+              const state =
+                reviewStateByFileId[file.id] ?? getInitialReviewState(file);
+              const isDenied = state.decision === "deny";
+              const isSaving = savingByFileId[file.id] === true;
+              const isOpen = renderedFileId === file.id;
 
-            {!student || student.files.length === 0 ? (
-              <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                Nenhum arquivo pendente.
-              </div>
-            ) : (
-              <Accordion type="single" collapsible>
-                {student.files.map((file) => {
-                  const status = formatStatus(file.status);
-                  const isReviewed = file.status !== "PENDENTE";
-                  const aiStatus = formatAiStatus(file.aiStatus);
-                  const aiSuggestedTitle = getAiSuggestedTitle(file);
-                  const aiHoursPlaceholder = getAiHoursPlaceholder(file);
-                  const state =
-                    reviewStateByFileId[file.id] ?? getInitialReviewState(file);
-                  const isDenied = state.decision === "deny";
-                  const isSaving = savingByFileId[file.id] === true;
-
-                  return (
-                    <AccordionItem key={file.id} value={file.id}>
-                      <AccordionTrigger>
-                        <div className="flex w-full flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">
-                              {file.title}
-                            </span>
-                            {aiSuggestedTitle ? (
-                              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                                {aiSuggestedTitle}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(file.createdAt)}
-                            </span>
-                            {aiStatus ? (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "gap-1 border-dashed",
-                                  aiStatus.className,
-                                )}
-                                title={aiStatus.title}
-                              >
-                                <Sparkles className="h-3.5 w-3.5" />
-                                {aiStatus.label}
-                              </Badge>
-                            ) : null}
-                            <Badge variant={status.variant}>
-                              {status.label}
-                            </Badge>
-                          </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="grid gap-4 pt-2">
-                          <button
-                            type="button"
-                            className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-primary transition-colors hover:bg-muted sm:w-fit sm:justify-start"
-                            onClick={() => handleOpenFileViewer(file)}
+              return (
+                <AccordionItem key={file.id} value={file.id}>
+                  <AccordionTrigger>
+                    <div className="flex w-full flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">
+                          {file.title}
+                        </span>
+                        {aiSuggestedTitle ? (
+                          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                            {aiSuggestedTitle}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(file.createdAt)}
+                        </span>
+                        {aiStatus ? (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "gap-1 border-dashed",
+                              aiStatus.className,
+                            )}
+                            title={aiStatus.title}
                           >
-                            Abrir arquivo
-                            <Eye className="h-3.5 w-3.5 shrink-0" />
-                          </button>
-
+                            <Sparkles className="h-3.5 w-3.5" />
+                            {aiStatus.label}
+                          </Badge>
+                        ) : null}
+                        <Badge variant={status.variant}>
+                          {status.label}
+                        </Badge>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid gap-4 pt-2">
+                    <div
+                      className={cn(
+                        "grid gap-4",
+                        isOpen && "lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-3",
+                      )}
+                    >
+                      <div className="grid gap-4">
                           <div className="grid w-full gap-4 sm:grid-cols-[minmax(0,1fr)_9rem] sm:items-end">
                             <div className="grid gap-2">
                               <span className="text-sm font-medium">
@@ -610,6 +611,41 @@ export function AdminDialog({
                             </div>
                           </div>
 
+                          {uploadType === "complementar" ? (
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium">
+                                Tipo de horas
+                              </label>
+                              <Select
+                                value={state.hourType ?? undefined}
+                                onValueChange={(value) => {
+                                  if (isReviewed) return;
+                                  updateFileState(file.id, (prev) => ({
+                                    ...prev,
+                                    hourType: value as ComplementarHourType,
+                                  }));
+                                }}
+                                disabled={isReviewed}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Selecione o tipo de horas" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {COMPLEMENTAR_HOUR_TYPE_OPTIONS.map(
+                                    (option) => (
+                                      <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                      >
+                                        {option.label}
+                                      </SelectItem>
+                                    ),
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          ) : null}
+
                           <div
                             className={cn(
                               "grid overflow-hidden transition-all duration-300 ease-out",
@@ -645,40 +681,49 @@ export function AdminDialog({
                             </div>
                           </div>
 
-                          <div className="flex w-full justify-end border-t pt-4">
-                            <Button
-                              size="sm"
-                              intent="primary"
-                              disabled={isSaving || isReviewed}
-                              onClick={() => handleSubmitReview(file)}
-                              className="min-h-11 w-full gap-2 sm:w-auto sm:min-w-40"
-                            >
-                              {isSaving ? (
-                                <>
-                                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                                  Salvando...
-                                </>
-                              ) : isReviewed ? (
-                                <>
-                                  <Save className="h-4 w-4" />
-                                  Revisado
-                                </>
-                              ) : (
-                                <>
-                                  <Save className="h-4 w-4" />
-                                  Salvar
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
-              </Accordion>
-            )}
-          </>
+                      </div>
+
+                      {isOpen ? (
+                        <FileViewer
+                          fileUrl={`/api/files/certificate/${file.id}`}
+                          fileName={file.title}
+                          className="h-64 lg:h-full"
+                        />
+                      ) : null}
+                    </div>
+
+                    <div className="flex w-full justify-end border-t pt-4">
+                      <Button
+                        size="sm"
+                        intent="primary"
+                        disabled={isSaving || isReviewed}
+                        onClick={() => handleSubmitReview(file)}
+                        className="min-h-11 w-full gap-2 sm:w-auto sm:min-w-32"
+                      >
+                        {isSaving ? (
+                          <>
+                            <Spinner className="h-4 w-4" />
+                            Salvando...
+                          </>
+                        ) : isReviewed ? (
+                          <>
+                            <Save className="h-4 w-4" />
+                            Revisado
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4" />
+                            Salvar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
         )}
       </DialogContent>
     </Dialog>

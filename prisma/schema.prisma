@@ -9,12 +9,10 @@
 generator client {
   provider   = "prisma-client-js"
   engineType = "library"
-  
 }
 
 datasource db {
   provider = "postgresql" // ou mysql
-  
 }
 
 // Enums (Tipos fixos) facilitam muito a lógica
@@ -23,11 +21,18 @@ enum UserRole {
   ADMIN
 }
 
-
 enum Status {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum InternshipStatus {
+  PENDING
+  REJECTED
+  ACTIVE
+  COMPLETED
+  TERMINATED
 }
 
 enum AiStatus {
@@ -42,62 +47,126 @@ enum CertificateType {
   COMPLEMENTAR
 }
 
+enum ComplementarHourType {
+  INICIACAO_CIENTIFICA
+  MONITORIA
+  ESTAGIO_NAO_OBRIGATORIO_TRAINEE
+  CERTIFICACAO_LINGUA_ESTRANGEIRA
+  CURSO_IDIOMAS
+  CURSOS_LIVRES_CC
+  CERTIFICACAO_TECNOLOGIA_CC
+  GRUPO_ESTUDO_CC
+  PARTICIPACAO_EVENTOS
+  ORGANIZACAO_EVENTOS
+  PUBLICACAO_ARTIGO_COMPLETO
+  APRESENTACAO_ARTIGO_COMPLETO
+  APRESENTACAO_CURSO_CURTA_DURACAO
+  EQUIPE_COMPETICAO_UFSJ
+  COMPETICAO_EQUIPE_REGISTRADA_UFSJ
+  REPRESENTACAO_ESTUDANTIL
+  DIRETORIA_ATLETICA
+  PET_GET
+  COMPETICAO_ATLETICA
+  GESTAO_EMPRESA_JUNIOR
+  DOACAO_SANGUE
+}
+
+enum InternshipSubmissionKind {
+  INITIAL
+  EXTENSION
+}
+
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  image         String?
-  role          UserRole 
-  accessStatus  Status @default(PENDING)
-  reviewedAt    DateTime?   
-  createdAt     DateTime  @default(now())
+  id           String    @id @default(cuid())
+  name         String?
+  email        String    @unique
+  image        String?
+  role         UserRole
+  accessStatus Status    @default(PENDING)
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
 
   // --- PERMISSÕES GRANULARES (Válidas quando role == ADMIN) ---
   canManageComplementar Boolean @default(false)
   canManageExtensao     Boolean @default(false)
+  canManageEstagio      Boolean @default(false)
   canManageUsers        Boolean @default(false) // Pode gerir aprovações/permissões de usuários
 
   // Relacionamento: Um aluno tem vários certificados
-  certificados  Certificate[]
+  certificados Certificate[]
+  internships  Internship[]
 }
 
 model Certificate {
-  id              String          @id @default(cuid())
-  
-  
+  id String @id @default(cuid())
+
   // --- DADOS OFICIAIS (O que vale para o aluno no final) ---
-  title           String
-  hours           Int?
-  certificatetype CertificateType @default(COMPLEMENTAR)
-  status          Status          @default(PENDING)
-  feedback        String?
+  title                String
+  hours                Int?
+  certificatetype      CertificateType       @default(COMPLEMENTAR)
+  status               Status                @default(PENDING)
+  feedback             String?
+  complementarHourType ComplementarHourType?
 
   // --- DADOS DO ARQUIVO ---
-  fileUrl         String   
-  fileId          String   
+  fileUrl String
+  fileId  String
 
   // --- INTERVENÇÃO DA IA (Totalmente Isolada) ---
-  aiStatus        AiStatus        @default(QUEUED)
-  aiDecision     Status          @default(PENDING)
+  aiStatus         AiStatus @default(QUEUED)
+  aiDecision       Status   @default(PENDING)
   aiSuggestedTitle String?
   aiSuggestedHours Int?
-  aiFeedback      String?
+  aiFeedback       String?
 
   // Campo Técnico Bruto
-  aiRaw            Json?    // Salva o dicionário completo retornado pelo Python
+  aiRaw Json? // Salva o dicionário completo retornado pelo Python
 
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Conexão com o Aluno
-  userId          String
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Internship {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     InternshipStatus @default(PENDING)
+  company    String
+  supervisor String
+  start      DateTime
+  end        DateTime
+  feedback   String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  submissions InternshipSubmission[]
+}
+
+model InternshipSubmission {
+  id           String                   @id @default(cuid())
+  internshipId String
+  internship   Internship               @relation(fields: [internshipId], references: [id], onDelete: Cascade)
+  kind         InternshipSubmissionKind @default(INITIAL)
+  company      String
+  supervisor   String
+  start        DateTime
+  end          DateTime
+  fileUrl      String
+  fileId       String
+  status       Status                   @default(PENDING)
+  feedback     String?
+  createdAt    DateTime                 @default(now())
+  reviewedAt   DateTime?
 }
 
 model SystemConfig {
-  id              String   @id @default("current_config")
-  tunedTextModel  String?  // Ex: "tunedModels/gemini-ufsj-texto-v1"
-  updatedAt       DateTime @updatedAt
-  extensaoLimit   Int     @default(200)// Limite de horas para certificados de extensão
-  complementarLimit Int @default(120) // Limite de horas para certificados de complementação
+  id                String   @id @default("current_config")
+  tunedTextModel    String? // Ex: "tunedModels/gemini-ufsj-texto-v1"
+  updatedAt         DateTime @updatedAt
+  extensaoLimit     Int      @default(200) // Limite de horas para certificados de extensão
+  complementarLimit Int      @default(120) // Limite de horas para certificados de complementação
 }

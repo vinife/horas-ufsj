@@ -110,6 +110,7 @@ async function createBaseUsers() {
       reviewedAt: new Date(),
       canManageComplementar: true,
       canManageExtensao: true,
+      canManageEstagio: true,
       canManageUsers: true,
     },
     create: {
@@ -120,6 +121,7 @@ async function createBaseUsers() {
       reviewedAt: new Date(),
       canManageComplementar: true,
       canManageExtensao: true,
+      canManageEstagio: true,
       canManageUsers: true,
     },
   });
@@ -133,6 +135,7 @@ async function createBaseUsers() {
       reviewedAt: new Date(),
       canManageComplementar: false,
       canManageExtensao: false,
+      canManageEstagio: false,
       canManageUsers: false,
     },
     create: {
@@ -143,6 +146,7 @@ async function createBaseUsers() {
       reviewedAt: new Date(),
       canManageComplementar: false,
       canManageExtensao: false,
+      canManageEstagio: false,
       canManageUsers: false,
     },
   });
@@ -156,6 +160,7 @@ async function createBaseUsers() {
       reviewedAt: new Date(),
       canManageComplementar: false,
       canManageExtensao: false,
+      canManageEstagio: false,
       canManageUsers: false,
     },
     create: {
@@ -166,6 +171,7 @@ async function createBaseUsers() {
       reviewedAt: new Date(),
       canManageComplementar: false,
       canManageExtensao: false,
+      canManageEstagio: false,
       canManageUsers: false,
     },
   });

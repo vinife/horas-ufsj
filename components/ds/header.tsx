@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuthStore } from "@/lib/auth-store";
+import { useAuthStore, type AuthUser } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 import { useClientStore } from "@/lib/client-store";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useHeaderResponsiveStage } from "@/components/ds/use-header-responsive-stage";
 import { LogOutIcon, MoreHorizontalIcon } from "lucide-react";
 import Image from "next/image";
 import styles from "./header.module.css";
@@ -35,6 +36,211 @@ type HeaderProps = {
   className?: string;
 };
 
+type AuthStatus = "loading" | "authed" | "guest";
+
+type HeaderTabsListProps = {
+  tabs: HeaderTab[];
+  selectedTab?: string;
+  onTabChange?: (id: string) => void;
+  compact: boolean;
+  hidden?: boolean;
+  listRef?: React.Ref<HTMLDivElement>;
+};
+
+function HeaderTabsList({
+  tabs,
+  selectedTab,
+  onTabChange,
+  compact,
+  hidden,
+  listRef,
+}: HeaderTabsListProps) {
+  if (!selectedTab) return null;
+
+  return (
+    <Tabs
+      value={selectedTab}
+      onValueChange={(value) => onTabChange?.(value)}
+      aria-hidden={hidden || undefined}
+      className={cn(
+        hidden && "pointer-events-none invisible absolute left-0 top-0",
+      )}
+    >
+      <TabsList
+        ref={listRef}
+        className={cn(
+          "items-center gap-1 justify-center px-1.5",
+          !compact && styles.tabsFull,
+        )}
+      >
+        {tabs.map((tab) => {
+          const isActive = tab.id === selectedTab;
+          return (
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              disabled={tab.disabled}
+              className={cn(
+                styles.trigger,
+                isActive ? styles.triggerActive : styles.triggerInactive,
+              )}
+            >
+              <span
+                className={cn(
+                  styles.avatar,
+                  isActive ? styles.avatarActive : styles.avatarInactive,
+                )}
+                aria-hidden
+              >
+                {tab.label[0]}
+              </span>
+
+              <span
+                className={cn(
+                  styles.label,
+                  isActive ? styles.labelActive : styles.labelInactive,
+                )}
+              >
+                {tab.label}
+              </span>
+              <NotificationBadge
+                count={tab.notificationCount ?? 0}
+                className={cn(
+                  "self-center",
+                  !isActive && (compact ? "hidden" : "hidden md:inline-flex"),
+                )}
+              />
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </Tabs>
+  );
+}
+
+type HeaderRightFullProps = {
+  authStatus: AuthStatus;
+  authUser: AuthUser | null;
+  hydrated: boolean;
+  theme: string;
+  toggleTheme: () => void;
+  onLogout?: () => void;
+  hidden?: boolean;
+  rootRef?: React.Ref<HTMLDivElement>;
+};
+
+function HeaderRightFull({
+  authStatus,
+  authUser,
+  hydrated,
+  theme,
+  toggleTheme,
+  onLogout,
+  hidden,
+  rootRef,
+}: HeaderRightFullProps) {
+  return (
+    <div
+      ref={rootRef}
+      aria-hidden={hidden || undefined}
+      className={cn(
+        "flex items-center gap-2 overflow-hidden justify-self-end",
+        hidden && "invisible absolute left-0 top-0 pointer-events-none",
+      )}
+    >
+      {authStatus === "authed" && (
+        <span className="max-w-32 truncate text-sm text-muted-foreground">
+          {authUser?.name ?? authUser?.email}
+        </span>
+      )}
+      <div className="flex h-9 items-center px-4">
+        <Switch
+          checked={hydrated ? theme === "dark" : false}
+          onCheckedChange={() => toggleTheme()}
+          aria-label="Alternar tema"
+          disabled={!hydrated}
+          className="translate-y-px"
+        />
+      </div>
+
+      <Button intent="secondary" className="min-w-24 gap-2" onClick={onLogout}>
+        <LogOutIcon />
+        Sair
+      </Button>
+    </div>
+  );
+}
+
+type HeaderRightNoNameProps = {
+  hydrated: boolean;
+  theme: string;
+  toggleTheme: () => void;
+  onLogout?: () => void;
+  hidden?: boolean;
+  rootRef?: React.Ref<HTMLDivElement>;
+};
+
+function HeaderRightNoName({
+  hydrated,
+  theme,
+  toggleTheme,
+  onLogout,
+  hidden,
+  rootRef,
+}: HeaderRightNoNameProps) {
+  return (
+    <div
+      ref={rootRef}
+      aria-hidden={hidden || undefined}
+      className={cn(
+        "flex items-center gap-2 overflow-hidden justify-self-end",
+        hidden && "invisible absolute left-0 top-0 pointer-events-none",
+      )}
+    >
+      <div className="flex h-9 items-center px-4">
+        <Switch
+          checked={hydrated ? theme === "dark" : false}
+          onCheckedChange={() => toggleTheme()}
+          aria-label="Alternar tema"
+          disabled={!hydrated}
+          className="translate-y-px"
+        />
+      </div>
+
+      <Button intent="secondary" className="min-w-24 gap-2" onClick={onLogout}>
+        <LogOutIcon />
+        Sair
+      </Button>
+    </div>
+  );
+}
+
+type HeaderRightMobileTriggerProps = {
+  hidden?: boolean;
+  rootRef?: React.Ref<HTMLButtonElement>;
+};
+
+function HeaderRightMobileTrigger({
+  hidden,
+  rootRef,
+}: HeaderRightMobileTriggerProps) {
+  return (
+    <Button
+      ref={rootRef}
+      intent="secondary"
+      tabIndex={hidden ? -1 : undefined}
+      aria-hidden={hidden || undefined}
+      className={cn(
+        "size-10 min-w-0 justify-self-end rounded-full p-0",
+        hidden && "invisible absolute left-0 top-0 pointer-events-none",
+      )}
+      aria-label="Abrir menu"
+    >
+      <MoreHorizontalIcon className="size-5" />
+    </Button>
+  );
+}
+
 export function Header({
   tabs,
   activeTabId,
@@ -49,6 +255,14 @@ export function Header({
   const authUser = useAuthStore((state) => state.user);
   const setAuthUser = useAuthStore((state) => state.setUser);
   const setAuthStatus = useAuthStore((state) => state.setStatus);
+
+  const headerRef = React.useRef<HTMLElement>(null);
+  const logoRef = React.useRef<HTMLDivElement>(null);
+  const tabsFullProbeRef = React.useRef<HTMLDivElement>(null);
+  const tabsCompactProbeRef = React.useRef<HTMLDivElement>(null);
+  const rightFullProbeRef = React.useRef<HTMLDivElement>(null);
+  const rightNoNameProbeRef = React.useRef<HTMLDivElement>(null);
+  const rightMobileProbeRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
     if (!hydrated) return;
@@ -79,15 +293,27 @@ export function Header({
   const safeTabs = tabs;
   const selectedTab = activeTabId ?? safeTabs[0]?.id;
 
+  const stage = useHeaderResponsiveStage({
+    containerRef: headerRef,
+    logoRef,
+    tabsFullRef: tabsFullProbeRef,
+    tabsCompactRef: tabsCompactProbeRef,
+    rightFullRef: rightFullProbeRef,
+    rightNoNameRef: rightNoNameProbeRef,
+    rightMobileRef: rightMobileProbeRef,
+    dependencies: [safeTabs, authUser?.name, authUser?.email],
+  });
+
   return (
     <header
+      ref={headerRef}
       className={cn(
         "relative grid w-full grid-cols-[1fr_auto_1fr] items-center border-b border-border bg-background",
         "min-h-16 gap-4 px-4 py-3",
         className,
       )}
     >
-      <div className="flex min-w-0 items-center gap-3 justify-self-start">
+      <div ref={logoRef} className="flex min-w-0 items-center gap-3 justify-self-start">
         <Image
           src="/Ccomp.png"
           alt="Logo"
@@ -98,164 +324,122 @@ export function Header({
       </div>
 
       <div className="flex items-center justify-center justify-self-center">
-        {selectedTab ? (
-          <Tabs
-            value={selectedTab}
-            onValueChange={(value) => onTabChange?.(value)}
-          >
-            {/* <TabsList className="w-full items-center justify-center gap-1">
-              {safeTabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  disabled={tab.disabled}
-                  className="transition-all duration-300 data-[state=active]:min-w-28 data-[state=inactive]:min-w-fit data-[state=active]:px-3 data-[state=inactive]:px-1 data-[state=active]:text-sm data-[state=inactive]:text-xs data-[state=inactive]:w-7"
-                >
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="inline sm:hidden transition-all duration-300 overflow-hidden whitespace-nowrap">
-                    {tab.id === selectedTab ? tab.label : tab.label[0]}
-                  </span>
-                </TabsTrigger>
-              ))}
-            </TabsList> */}
-            <TabsList className="items-center gap-1 justify-center px-1.5">
-              {safeTabs.map((tab) => {
-                const isActive = tab.id === selectedTab;
-                return (
-                  <TabsTrigger
-                    key={tab.id}
-                    value={tab.id}
-                    disabled={tab.disabled}
-                    className={cn(
-                      styles.trigger,
-                      isActive ? styles.triggerActive : styles.triggerInactive,
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        styles.avatar,
-                        isActive ? styles.avatarActive : styles.avatarInactive,
-                      )}
-                      aria-hidden
-                    >
-                      {tab.label[0]}
-                    </span>
-
-                    <span
-                      className={cn(
-                        styles.label,
-                        isActive ? styles.labelActive : styles.labelInactive,
-                      )}
-                    >
-                      {tab.label}
-                    </span>
-                    <NotificationBadge
-                      count={tab.notificationCount ?? 0}
-                      className={cn(
-                        "self-center",
-                        !isActive && "hidden md:inline-flex",
-                      )}
-                    />
-                    {/* {!isActive && (
-                      <span className="md:hidden flex size-6 shrink-0 items-center justify-center rounded-full ring-1 ring-border bg-muted text-[11px] font-medium text-muted-foreground leading-none">
-                        {tab.label[0]}
-                      </span>
-                    )}
-
-                    <span
-                      className={cn(
-                        "whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out",
-                        isActive ? "max-w-40 opacity-100" : "max-w-0 opacity-0",
-                        "md:max-w-40 md:opacity-100",
-                      )}
-                    >
-                      {tab.label}
-                    </span> */}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-        ) : null}
+        <HeaderTabsList
+          tabs={safeTabs}
+          selectedTab={selectedTab}
+          onTabChange={onTabChange}
+          compact={stage !== "full"}
+        />
       </div>
 
-      <div className="hidden items-center gap-2 overflow-hidden justify-self-end md:flex">
-        {authStatus === "authed" && (
-          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-            {authUser?.name ?? authUser?.email}
-          </span>
-        )}
-        <div className="flex h-9 items-center px-4">
-          <Switch
-            checked={hydrated ? theme === "dark" : false}
-            onCheckedChange={() => toggleTheme()}
-            aria-label="Alternar tema"
-            disabled={!hydrated}
-            className="translate-y-px"
-          />
-        </div>
-
-        <Button
-          intent="secondary"
-          className="min-w-24 gap-2"
-          onClick={onLogout}
-        >
-          <LogOutIcon />
-          Sair
-        </Button>
-      </div>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            intent="secondary"
-            className="size-10 min-w-0 rounded-full p-0 md:hidden"
-            aria-label="Abrir menu"
-          >
-            <MoreHorizontalIcon className="size-5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64 md:hidden">
-          {authStatus === "authed" ? (
-            <>
-              <div className="px-3 py-2">
-                <p className="truncate text-sm font-medium">
-                  {authUser?.name ?? authUser?.email}
-                </p>
-                {authUser?.name && authUser?.email ? (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {authUser.email}
+      {(stage === "full" || stage === "compact-tabs") && (
+        <HeaderRightFull
+          authStatus={authStatus}
+          authUser={authUser}
+          hydrated={hydrated}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          onLogout={onLogout}
+        />
+      )}
+      {stage === "compact-tabs-no-name" && (
+        <HeaderRightNoName
+          hydrated={hydrated}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          onLogout={onLogout}
+        />
+      )}
+      {stage === "mobile" && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              intent="secondary"
+              className="size-10 min-w-0 justify-self-end rounded-full p-0"
+              aria-label="Abrir menu"
+            >
+              <MoreHorizontalIcon className="size-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {authStatus === "authed" ? (
+              <>
+                <div className="px-3 py-2">
+                  <p className="truncate text-sm font-medium">
+                    {authUser?.name ?? authUser?.email}
                   </p>
-                ) : null}
-              </div>
-              <DropdownMenuSeparator />
-            </>
-          ) : null}
+                  {authUser?.name && authUser?.email ? (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {authUser.email}
+                    </p>
+                  ) : null}
+                </div>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
 
-          <div className="flex items-center justify-between rounded-xl px-3 py-2 text-sm">
-            <span>Modo escuro</span>
-            <Switch
-              checked={hydrated ? theme === "dark" : false}
-              onCheckedChange={() => toggleTheme()}
-              aria-label="Alternar tema"
-              disabled={!hydrated}
-            />
-          </div>
+            <div className="flex items-center justify-between rounded-xl px-3 py-2 text-sm">
+              <span>Modo escuro</span>
+              <Switch
+                checked={hydrated ? theme === "dark" : false}
+                onCheckedChange={() => toggleTheme()}
+                aria-label="Alternar tema"
+                disabled={!hydrated}
+              />
+            </div>
 
-          {onLogout ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => onLogout()}
-              >
-                <LogOutIcon />
-                Sair
-              </DropdownMenuItem>
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {onLogout ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => onLogout()}
+                >
+                  <LogOutIcon />
+                  Sair
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* Hidden measurement probes — always mounted so the next resize pass has fresh numbers */}
+      <HeaderRightFull
+        authStatus={authStatus}
+        authUser={authUser}
+        hydrated={hydrated}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        onLogout={onLogout}
+        hidden
+        rootRef={rightFullProbeRef}
+      />
+      <HeaderRightNoName
+        hydrated={hydrated}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        onLogout={onLogout}
+        hidden
+        rootRef={rightNoNameProbeRef}
+      />
+      <HeaderRightMobileTrigger hidden rootRef={rightMobileProbeRef} />
+      <HeaderTabsList
+        tabs={safeTabs}
+        selectedTab={selectedTab}
+        onTabChange={undefined}
+        compact={false}
+        hidden
+        listRef={tabsFullProbeRef}
+      />
+      <HeaderTabsList
+        tabs={safeTabs}
+        selectedTab={selectedTab}
+        onTabChange={undefined}
+        compact={true}
+        hidden
+        listRef={tabsCompactProbeRef}
+      />
     </header>
   );
 }

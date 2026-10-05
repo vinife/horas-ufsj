@@ -1,3 +1,7 @@
+import {
+  COMPLEMENTAR_HOUR_TYPE_CAPS,
+  COMPLEMENTAR_HOUR_TYPE_LABELS,
+} from "@/lib/constants/complementar-hour-types";
 import { db } from "@/lib/db";
 import {
   reviewCertificateSchema,
@@ -297,6 +301,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
             aiSuggestedTitle: true,
             aiSuggestedHours: true,
             aiFeedback: true,
+            complementarHourType: true,
           },
         },
       },
@@ -353,6 +358,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
               aiSuggestedTitle: file.aiSuggestedTitle,
               aiSuggestedHours: file.aiSuggestedHours,
               aiFeedback: file.aiFeedback,
+              complementarHourType: file.complementarHourType,
             })),
           };
         }),
@@ -420,6 +426,7 @@ export function createAdminUploadPatchHandler(uploadType: UploadType) {
       },
       select: {
         id: true,
+        userId: true,
       },
     });
 
@@ -431,6 +438,41 @@ export function createAdminUploadPatchHandler(uploadType: UploadType) {
     }
 
     const nextStatus = body.decision === "allow" ? "APPROVED" : "REJECTED";
+
+    if (uploadType === "complementar" && body.decision === "allow") {
+      if (!body.complementarHourType) {
+        return NextResponse.json(
+          {
+            error: "Selecione o tipo de horas para aprovar este certificado.",
+          },
+          { status: 422 },
+        );
+      }
+
+      const cap = COMPLEMENTAR_HOUR_TYPE_CAPS[body.complementarHourType];
+      if (cap !== null) {
+        const usage = await db.certificate.aggregate({
+          where: {
+            userId: current.userId,
+            certificatetype: "COMPLEMENTAR",
+            complementarHourType: body.complementarHourType,
+            status: "APPROVED",
+          },
+          _sum: { hours: true },
+        });
+        const usedHours = usage._sum.hours ?? 0;
+
+        if (usedHours + body.hours > cap) {
+          return NextResponse.json(
+            {
+              error: `Limite de ${cap}h para "${COMPLEMENTAR_HOUR_TYPE_LABELS[body.complementarHourType]}" seria excedido (já aprovadas: ${usedHours}h).`,
+            },
+            { status: 422 },
+          );
+        }
+      }
+    }
+
     const updated = await db.certificate.update({
       where: { id: current.id },
       data: {
@@ -438,12 +480,16 @@ export function createAdminUploadPatchHandler(uploadType: UploadType) {
         hours: body.hours,
         feedback:
           body.decision === "deny" ? (body.commentary?.trim() ?? null) : null,
+        ...(uploadType === "complementar" && body.decision === "allow"
+          ? { complementarHourType: body.complementarHourType }
+          : {}),
       },
       select: {
         id: true,
         status: true,
         hours: true,
         feedback: true,
+        complementarHourType: true,
       },
     });
 

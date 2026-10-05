@@ -15,6 +15,7 @@ const badgeVariants = cva(
         pending: "bg-status-pending text-status-pending-foreground [a]:hover:bg-status-pending/90",
         approved: "bg-status-approved text-status-approved-foreground [a]:hover:bg-status-approved/90",
         denied: "bg-status-denied text-status-denied-foreground [a]:hover:bg-status-denied/90",
+        active: "bg-status-active text-status-active-foreground [a]:hover:bg-status-active/90",
         outline: "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground bg-input/30",
         ghost: "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",

@@ -108,6 +108,7 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         canManageComplementar: true,
         canManageExtensao: true,
+        canManageEstagio: true,
         canManageUsers: true,
       },
     }),
@@ -164,6 +165,7 @@ export async function POST(request: NextRequest) {
   const defaultPermissions = {
     canManageComplementar: false,
     canManageExtensao: false,
+    canManageEstagio: false,
     canManageUsers: false,
   };
   const user = await db.user.upsert({
@@ -192,6 +194,7 @@ export async function POST(request: NextRequest) {
       createdAt: true,
       canManageComplementar: true,
       canManageExtensao: true,
+      canManageEstagio: true,
       canManageUsers: true,
     },
   });
@@ -231,6 +234,7 @@ export async function PATCH(request: NextRequest) {
       accessStatus: true,
       canManageComplementar: true,
       canManageExtensao: true,
+      canManageEstagio: true,
       canManageUsers: true,
     },
   });
@@ -251,11 +255,14 @@ export async function PATCH(request: NextRequest) {
             body.canManageComplementar ?? existingUser.canManageComplementar,
           canManageExtensao:
             body.canManageExtensao ?? existingUser.canManageExtensao,
+          canManageEstagio:
+            body.canManageEstagio ?? existingUser.canManageEstagio,
           canManageUsers: body.canManageUsers ?? existingUser.canManageUsers,
         }
       : {
           canManageComplementar: false,
           canManageExtensao: false,
+          canManageEstagio: false,
           canManageUsers: false,
         };
 
@@ -305,6 +312,7 @@ export async function PATCH(request: NextRequest) {
       createdAt: true,
       canManageComplementar: true,
       canManageExtensao: true,
+      canManageEstagio: true,
       canManageUsers: true,
     },
   });

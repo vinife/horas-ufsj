@@ -1,0 +1,33 @@
+@startuml 08-fluxo-fine-tuning
+title Pipeline de Fine-Tuning (orchestrator.py)
+
+start
+:Contar certificados\nvalidados por humano;
+if (validated_count >= 500?) then (não)
+  :Encerrar orquestrador\n(volume insuficiente);
+  stop
+else (sim)
+  :Exportar dataset JSONL\n(export_training_data_jsonl);
+  :Disparar fine-tuning\nno Gemini AI Studio\n(client.aio.models.create);
+  repeat
+    :Consultar status do modelo\n(client.aio.models.get);
+    if (state == ACTIVE?) then (sim)
+      :Marcar como pronto;
+      break
+    elseif (state == FAILED?) then (sim)
+      :Registrar falha;
+      break
+    else (CREATING)
+      :Aguardar 60s;
+    endif
+  repeat while (timeout não atingido) is (continuar)
+  if (modelo pronto?) then (sim)
+    :Atualizar SystemConfig\n.tunedTextModel;
+    :Remover dataset temporário;
+  else (não)
+    :Abortar atualização\ndo banco;
+  endif
+endif
+stop
+
+@enduml

@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { Card } from "@/components/ds/card";
 import { Button } from "@/components/ds/button";
+import { FileViewerDialog } from "@/components/ds/file-viewer-dialog";
 import { notify } from "@/components/ds/notification";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -105,6 +106,9 @@ export function UploadCard({
 }: UploadCardProps) {
   const queryClient = useQueryClient();
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [viewingFile, setViewingFile] = React.useState<UploadedFile | null>(
+    null,
+  );
   const hasShownLoadErrorRef = React.useRef(false);
   const queryKey = React.useMemo(() => ["uploads", endpoint], [endpoint]);
   const { data: fetchedData, isError } = useQuery({
@@ -289,7 +293,6 @@ export function UploadCard({
               <TableHeader>
                 <TableRow>
                   <TableHead>Arquivo</TableHead>
-                  <TableHead>Horas</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -302,20 +305,20 @@ export function UploadCard({
                   const badgeTitle =
                     file.status === "REJECTED" && file.feedback?.trim()
                       ? file.feedback.trim()
-                      : undefined;
+                      : file.status === "APPROVED"
+                        ? `${file.hours}h aprovada${file.hours === 1 ? "" : "s"}`
+                        : undefined;
                   return (
                     <TableRow key={file.id}>
                       <TableCell className="max-w-60 truncate">
-                        <a
-                          href={file.fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => setViewingFile(file)}
                           className="text-primary hover:underline"
                         >
                           {file.title}
-                        </a>
+                        </button>
                       </TableCell>
-                      <TableCell>{file.hours}</TableCell>
                       <TableCell>
                         <Badge variant={status.variant} title={badgeTitle}>
                           {status.label}
@@ -341,6 +344,15 @@ export function UploadCard({
           </div>
         )}
       </Card.Content>
+
+      <FileViewerDialog
+        open={viewingFile !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewingFile(null);
+        }}
+        fileUrl={viewingFile ? `/api/files/certificate/${viewingFile.id}` : ""}
+        fileName={viewingFile?.title}
+      />
     </Card>
   );
 }

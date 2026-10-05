@@ -1,0 +1,35 @@
+@startuml 09-componentes
+title Diagrama de Componentes
+
+package "horas-ufsj (Next.js/TypeScript)" {
+  [app/api] as ApiRoutes
+  [lib/auth] as Auth
+  [lib/schemas] as Schemas
+  [components/ds] as DS
+  [prisma] as Prisma
+}
+
+package "worker-ia (Python)" {
+  [config.py] as Config
+  [database.py] as Database
+  [drive_service.py] as DriveService
+  [gemini_service.py] as GeminiService
+  [main.py\n(worker)] as Main
+  [orchestrator.py] as Orchestrator
+}
+
+ApiRoutes --> Auth : valida sessão/permissões
+ApiRoutes --> Schemas : valida payloads (Zod)
+ApiRoutes --> Prisma : acesso a dados
+DS --> ApiRoutes : consome via fetch/hooks
+
+Main --> Config
+Main --> Database
+Main --> DriveService
+Main --> GeminiService
+Orchestrator --> Database
+Orchestrator --> GeminiService
+
+Database --> Prisma : mesmo schema/\nbanco PostgreSQL
+
+@enduml

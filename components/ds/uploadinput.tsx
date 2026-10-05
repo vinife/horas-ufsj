@@ -33,6 +33,14 @@ type UploadInputProps = {
     context: { setProgress: (progress: number) => void },
   ) => Promise<{ status: "success" } | { status: "error"; error: string }>
   children?: React.ReactNode
+  /**
+   * When provided, the "whole area becomes a dropzone" takeover is scoped to
+   * this container (position: absolute, inset-0) instead of the whole window
+   * (position: fixed). Use this when UploadInput is rendered inside a Dialog
+   * or other transformed ancestor, where `position: fixed` no longer resolves
+   * against the viewport. When omitted, behavior is unchanged (window-wide).
+   */
+  overlayContainerRef?: React.RefObject<HTMLElement | null>
 }
 
 function eventHasFiles(event: DragEvent) {
@@ -49,7 +57,9 @@ export function UploadInput({
   maxFiles,
   onChange,
   uploadFile,
+  overlayContainerRef,
 }: UploadInputProps) {
+  const isScoped = overlayContainerRef !== undefined
   const lastRootErrorRef = React.useRef<string | undefined>(undefined)
   const removeSuccessTimeoutsRef = React.useRef<Map<string, number>>(new Map())
   const windowDragDepthRef = React.useRef(0)
@@ -134,6 +144,8 @@ export function UploadInput({
 
   React.useEffect(() => {
     const syncOverlayTopOffset = () => {
+      if (isScoped) return
+
       const header = document.querySelector("header")
       if (!(header instanceof HTMLElement)) {
         setOverlayTopOffset(0)
@@ -176,6 +188,22 @@ export function UploadInput({
       resetWindowDrag()
     }
 
+    const scopedTarget = overlayContainerRef?.current
+
+    if (scopedTarget) {
+      scopedTarget.addEventListener("dragenter", handleDragEnter)
+      scopedTarget.addEventListener("dragover", handleDragOver)
+      scopedTarget.addEventListener("dragleave", handleDragLeave)
+      scopedTarget.addEventListener("drop", handleDrop)
+
+      return () => {
+        scopedTarget.removeEventListener("dragenter", handleDragEnter)
+        scopedTarget.removeEventListener("dragover", handleDragOver)
+        scopedTarget.removeEventListener("dragleave", handleDragLeave)
+        scopedTarget.removeEventListener("drop", handleDrop)
+      }
+    }
+
     window.addEventListener("dragenter", handleDragEnter)
     window.addEventListener("dragover", handleDragOver)
     window.addEventListener("dragleave", handleDragLeave)
@@ -193,7 +221,7 @@ export function UploadInput({
       window.removeEventListener("resize", syncOverlayTopOffset)
       window.removeEventListener("scroll", syncOverlayTopOffset)
     }
-  }, [])
+  }, [overlayContainerRef, isScoped])
 
   const isExpandedDropzone = isWindowDragActive || dropzone.isDragActive
 
@@ -203,8 +231,11 @@ export function UploadInput({
         {isExpandedDropzone && (
           <div
             aria-hidden="true"
-            className="pointer-events-none fixed inset-x-0 bottom-0 z-40 animate-in fade-in-0 duration-200 bg-background/70 backdrop-blur-[2px]"
-            style={{ top: `${overlayTopOffset}px` }}
+            className={cn(
+              "pointer-events-none z-40 animate-in fade-in-0 duration-200 bg-background/70 backdrop-blur-[2px]",
+              isScoped ? "absolute inset-0" : "fixed inset-x-0 bottom-0",
+            )}
+            style={isScoped ? undefined : { top: `${overlayTopOffset}px` }}
           />
         )}
 
@@ -223,8 +254,11 @@ export function UploadInput({
         {isExpandedDropzone && (
           <DropZoneArea
             data-state="open"
-            style={{ top: `${overlayTopOffset + 16}px` }}
-            className="fixed inset-x-4 bottom-4 z-50 flex-col rounded-2xl border-2 border-dashed border-primary bg-background/95 px-6 py-8 shadow-2xl backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2"
+            style={isScoped ? undefined : { top: `${overlayTopOffset + 16}px` }}
+            className={cn(
+              "z-50 flex-col rounded-2xl border-2 border-dashed border-primary bg-background/95 px-6 py-8 shadow-2xl backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2",
+              isScoped ? "absolute inset-3" : "fixed inset-x-4 bottom-4",
+            )}
           >
             <div className="flex flex-col items-center gap-3 text-center">
               <div className="flex h-14 w-14 scale-110 items-center justify-center rounded-full border border-primary/25 bg-primary/8 text-foreground shadow-xs animate-pulse">
@@ -234,7 +268,9 @@ export function UploadInput({
                 Solte o arquivo para enviar
               </div>
               <DropzoneDescription className="max-w-sm text-sm">
-                A area de upload foi expandida apenas pelo corpo da pagina.
+                {isScoped
+                  ? "A área de upload foi expandida por todo o diálogo."
+                  : "A área de upload foi expandida apenas pelo corpo da página."}
               </DropzoneDescription>
             </div>
           </DropZoneArea>

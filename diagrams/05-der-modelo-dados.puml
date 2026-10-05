@@ -1,0 +1,88 @@
+@startuml 05-der-modelo-dados
+title Modelo de Dados (Entidade-Relacionamento)
+
+skinparam linetype ortho
+
+entity "User" as User {
+  * id : String <<PK>>
+  --
+  name : String
+  * email : String <<unique>>
+  image : String
+  * role : UserRole
+  * accessStatus : Status
+  reviewedAt : DateTime
+  canManageComplementar : Boolean
+  canManageExtensao : Boolean
+  canManageEstagio : Boolean
+  canManageUsers : Boolean
+  createdAt : DateTime
+}
+
+entity "Certificate" as Certificate {
+  * id : String <<PK>>
+  --
+  * userId : String <<FK>>
+  * title : String
+  hours : Int
+  * certificatetype : CertificateType
+  * status : Status
+  feedback : String
+  complementarHourType : ComplementarHourType
+  * fileUrl : String
+  * fileId : String
+  * aiStatus : AiStatus
+  * aiDecision : Status
+  aiSuggestedTitle : String
+  aiSuggestedHours : Int
+  aiFeedback : String
+  aiRaw : Json
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+entity "Internship" as Internship {
+  * id : String <<PK>>
+  --
+  * userId : String <<FK>>
+  * status : InternshipStatus
+  * company : String
+  * supervisor : String
+  * start : DateTime
+  * end : DateTime
+  feedback : String
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+entity "InternshipSubmission" as Submission {
+  * id : String <<PK>>
+  --
+  * internshipId : String <<FK>>
+  * kind : InternshipSubmissionKind
+  * company : String
+  * supervisor : String
+  * start : DateTime
+  * end : DateTime
+  * fileUrl : String
+  * fileId : String
+  * status : Status
+  feedback : String
+  createdAt : DateTime
+  reviewedAt : DateTime
+}
+
+entity "SystemConfig" as SystemConfig {
+  * id : String <<PK>>
+  --
+  tunedTextModel : String
+  * extensaoLimit : Int
+  * complementarLimit : Int
+  updatedAt : DateTime
+}
+
+User ||--o{ Certificate : possui
+User ||--o{ Internship : possui
+Internship ||--o{ Submission : possui
+
+@enduml

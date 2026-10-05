@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { ComplementarHourType } from "@prisma/client";
 import {
   keepPreviousData,
   useQuery,
@@ -52,6 +53,7 @@ type StudentReviewRow = StudentReview & {
 type AdminCardProps = {
   title?: string;
   endpoint?: string;
+  uploadType: "complementar" | "extensao";
   className?: string;
   onApprove?: (id: string) => void | Promise<void>;
   onReject?: (id: string) => void | Promise<void>;
@@ -126,6 +128,7 @@ function toStatusFilter(value: string): StatusFilter {
 export function AdminCard({
   title = "Comprovantes enviados",
   endpoint = "/api/admin/uploads",
+  uploadType,
   className,
   onApprove,
   onReject,
@@ -301,6 +304,7 @@ export function AdminCard({
     decision: "allow" | "deny";
     hours: number;
     commentary?: string;
+    complementarHourType?: ComplementarHourType;
   }) => {
     const reviewEndpoint = `${endpoint}/${payload.id}`;
     const res = await fetch(reviewEndpoint, {
@@ -313,6 +317,7 @@ export function AdminCard({
         decision: payload.decision,
         hours: payload.hours,
         commentary: payload.commentary,
+        complementarHourType: payload.complementarHourType,
       }),
     });
 
@@ -497,6 +502,7 @@ export function AdminCard({
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
           student={selectedStudent}
+          uploadType={uploadType}
           onApprove={handleApprove}
           onReject={handleReject}
           onReview={handleReview}

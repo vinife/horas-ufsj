@@ -4,10 +4,12 @@ import * as React from "react"
 import { parseAsString, useQueryState } from "nuqs"
 import { Header } from "@/components/ds/header"
 import { UploadCard } from "@/components/ds/uploadcard"
+import { InternshipCard } from "@/components/ds/internshipcard"
 
 const TABS = [
   { id: "Complementar", label: "Complementar" },
   { id: "Extensão", label: "Extensão" },
+  { id: "Estágio", label: "Estágio" },
   // { id: "profile", label: "Perfil" },
 ] as const
 
@@ -57,6 +59,13 @@ export default function StudentDashboardLayout() {
           <UploadCard
             title="Atividades de Extensão"
             endpoint="/api/student/uploads/extensao"
+          />
+        )}
+
+        {activeTabId === "Estágio" && (
+          <InternshipCard
+            title="Estágio"
+            endpoint="/api/student/internship"
           />
         )}
 

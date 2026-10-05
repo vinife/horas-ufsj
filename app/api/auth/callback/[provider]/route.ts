@@ -86,6 +86,7 @@ export async function GET(
           reviewedAt: new Date(),
           canManageComplementar: true,
           canManageExtensao: true,
+          canManageEstagio: true,
           canManageUsers: true,
         },
       });
@@ -98,6 +99,7 @@ export async function GET(
           accessStatus: "PENDING",
           canManageComplementar: false,
           canManageExtensao: false,
+          canManageEstagio: false,
           canManageUsers: false,
         },
       });
@@ -174,6 +176,7 @@ export async function GET(
           select: {
             canManageComplementar: true,
             canManageExtensao: true,
+            canManageEstagio: true,
             canManageUsers: true,
           },
         })

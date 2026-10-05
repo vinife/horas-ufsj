@@ -1,0 +1,32 @@
+@startuml 03-estados-certificado
+title Ciclo de Vida de um Certificado
+
+[*] --> PENDING : Certificado criado
+
+state PENDING {
+  state "aiStatus: QUEUED" as Queued
+  state "aiStatus: PROCESSING" as Processing
+  state "aiStatus: COMPLETED" as Completed
+  state "aiStatus: FAILED" as Failed
+
+  [*] --> Queued
+  Queued --> Processing : Worker inicia\nanálise
+  Processing --> Completed : Gemini retorna\nresultado
+  Processing --> Failed : Erro no\nprocessamento
+  Failed --> Queued : Reprocessamento\n(retry)
+}
+
+PENDING --> APPROVED : Admin aprova\n(considera aiDecision)
+PENDING --> REJECTED : Admin rejeita
+
+APPROVED --> [*]
+REJECTED --> [*]
+
+note right of PENDING
+  aiDecision (sugestão da IA) é
+  independente do status final:
+  o admin sempre pode sobrepor
+  a sugestão do modelo.
+end note
+
+@enduml

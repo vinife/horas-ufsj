@@ -392,6 +392,7 @@ export function UsersCard({ title, className }: UsersCardProps) {
     payload: UpdateUserStatusInput & {
       canManageComplementar?: boolean;
       canManageExtensao?: boolean;
+      canManageEstagio?: boolean;
       canManageUsers?: boolean;
     },
   ) => {

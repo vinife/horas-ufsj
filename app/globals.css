@@ -25,6 +25,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -43,6 +44,8 @@
   --color-status-approved-foreground: var(--status-approved-foreground);
   --color-status-denied: var(--status-denied);
   --color-status-denied-foreground: var(--status-denied-foreground);
+  --color-status-active: var(--status-active);
+  --color-status-active-foreground: var(--status-active-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -109,6 +112,9 @@
 
   --status-denied: oklch(0.6 0.22 25);
   --status-denied-foreground: oklch(0.98 0.01 25);
+
+  --status-active: oklch(0.7 0.12 200);
+  --status-active-foreground: oklch(0.98 0.01 200);
 }
 
 .dark {
@@ -177,6 +183,9 @@
 
   --status-denied: oklch(0.7 0.2 25);
   --status-denied-foreground: oklch(0.98 0.01 25);
+
+  --status-active: oklch(0.6 0.1 200);
+  --status-active-foreground: oklch(0.98 0.01 200);
 }
 
 @layer base {

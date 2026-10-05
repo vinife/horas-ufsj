@@ -1,0 +1,40 @@
+@startuml 01-arquitetura-c4-container
+title Arquitetura Geral do Sistema (Visão de Containers)
+
+skinparam componentStyle rectangle
+skinparam backgroundColor #FFFFFF
+
+actor "Aluno" as Aluno
+actor "Administrador" as Admin
+
+package "horas-ufsj (Next.js)" {
+  [Frontend Web\n(App Router)] as Frontend
+  [API Routes\n(app/api)] as API
+}
+
+database "PostgreSQL\n(Prisma)" as DB
+queue "Redis\n(BullMQ)" as Redis
+
+package "worker-ia (Python)" {
+  [Worker\n(main.py)] as Worker
+  [Orchestrator\n(fine-tuning)] as Orchestrator
+}
+
+cloud "Google Drive API" as Drive
+cloud "Gemini API" as Gemini
+
+Aluno --> Frontend : usa (navegador)
+Admin --> Frontend : usa (navegador)
+Frontend --> API : requisições HTTP
+API --> DB : lê/escreve (Prisma)
+API --> Drive : upload de arquivos
+API --> Redis : enfileira job de análise
+Redis --> Worker : consome job
+Worker --> Drive : baixa certificado
+Worker --> Gemini : solicita análise (vision)
+Worker --> DB : atualiza aiStatus/aiDecision
+Orchestrator --> DB : lê certificados validados
+Orchestrator --> Gemini : dispara fine-tuning
+Orchestrator --> DB : atualiza SystemConfig.tunedTextModel
+
+@enduml
