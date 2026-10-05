@@ -6,6 +6,10 @@ import { Card } from "@/components/ds/card";
 import { Button } from "@/components/ds/button";
 import { notify } from "@/components/ds/notification";
 import { InternshipFormDialog } from "@/components/ds/internship-form-dialog";
+import {
+  InternshipDocumentUploadDialog,
+  type InternshipDocumentKind,
+} from "@/components/ds/internship-document-upload-dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -28,6 +32,15 @@ export type InternshipSubmissionPayload = {
   createdAt: string;
 };
 
+export type InternshipDocumentPayload = {
+  id: string;
+  kind: InternshipDocumentKind;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  feedback: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+};
+
 export type InternshipPayload = {
   id: string;
   status: "PENDING" | "REJECTED" | "ACTIVE" | "COMPLETED" | "TERMINATED";
@@ -37,7 +50,47 @@ export type InternshipPayload = {
   end: string;
   feedback: string | null;
   submissions: InternshipSubmissionPayload[];
+  documents: InternshipDocumentPayload[];
+  certificate: { hours: number | null } | null;
 };
+
+const DOCUMENT_KIND_ORDER: InternshipDocumentKind[] = [
+  "PARTIAL_REPORT",
+  "COMPLETION_TERM",
+  "FINAL_REPORT",
+  "TERMINATION_TERM",
+];
+
+const DOCUMENT_KIND_LABELS: Record<InternshipDocumentKind, string> = {
+  PARTIAL_REPORT: "Relatório parcial",
+  COMPLETION_TERM: "Termo de Realização do Estágio",
+  FINAL_REPORT: "Relatório final",
+  TERMINATION_TERM: "Termo de Rescisão",
+};
+
+const DOCUMENT_KIND_GROUP_LABELS: Record<InternshipDocumentKind, string> = {
+  PARTIAL_REPORT: "Relatórios parciais",
+  COMPLETION_TERM: "Termo de realização",
+  FINAL_REPORT: "Relatório final",
+  TERMINATION_TERM: "Termo de rescisão",
+};
+
+const DOCUMENT_KIND_ACTION_LABELS: Record<InternshipDocumentKind, string> = {
+  PARTIAL_REPORT: "Enviar relatório parcial",
+  COMPLETION_TERM: "Enviar termo de realização",
+  FINAL_REPORT: "Enviar relatório final",
+  TERMINATION_TERM: "Enviar termo de rescisão",
+};
+
+function getEligibleDocumentKinds(
+  status: InternshipPayload["status"],
+): InternshipDocumentKind[] {
+  return DOCUMENT_KIND_ORDER.filter((kind) => {
+    if (kind === "PARTIAL_REPORT") return status === "ACTIVE";
+    if (kind === "TERMINATION_TERM") return status === "TERMINATED";
+    return status === "COMPLETED" || status === "TERMINATED";
+  });
+}
 
 type InternshipCardProps = {
   title?: string;
@@ -117,6 +170,56 @@ function ExtensionSubitems({
   );
 }
 
+function DocumentSubitems({
+  documents,
+}: {
+  documents: InternshipDocumentPayload[];
+}) {
+  const groups = DOCUMENT_KIND_ORDER.map((kind) => ({
+    kind,
+    items: documents.filter((document) => document.kind === kind),
+  })).filter((group) => group.items.length > 0);
+
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-3 border-l-2 pl-4">
+      {groups.map((group) => (
+        <div key={group.kind} className="grid gap-1.5">
+          <p className="text-xs font-medium text-muted-foreground">
+            {DOCUMENT_KIND_GROUP_LABELS[group.kind]}
+          </p>
+          {group.items.map((document) => (
+            <div
+              key={document.id}
+              className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+            >
+              {document.status === "REJECTED" ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="denied">Rejeitado</Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {document.feedback?.trim() ||
+                      "Nenhuma justificativa informada."}
+                  </TooltipContent>
+                </Tooltip>
+              ) : document.status === "APPROVED" ? (
+                <Badge variant="approved">Aprovado</Badge>
+              ) : (
+                <Badge variant="pending">Pendente</Badge>
+              )}
+              <span>{formatDate(document.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function formatStatus(status: InternshipPayload["status"]) {
   switch (status) {
     case "PENDING":
@@ -143,6 +246,8 @@ export function InternshipCard({
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [dialogMode, setDialogMode] = React.useState<FormDialogMode>("create");
+  const [documentDialogKind, setDocumentDialogKind] =
+    React.useState<InternshipDocumentKind | null>(null);
 
   const { data: internship, isLoading, isError } = useQuery({
     queryKey,
@@ -173,6 +278,9 @@ export function InternshipCard({
   }, [queryClient, queryKey]);
 
   const status = internship ? formatStatus(internship.status) : null;
+  const eligibleDocumentKinds = internship
+    ? getEligibleDocumentKinds(internship.status)
+    : [];
 
   return (
     <Card className={cn("mx-auto w-full max-w-3xl", className)}>
@@ -248,8 +356,27 @@ export function InternshipCard({
           </div>
         )}
 
+        {internship && eligibleDocumentKinds.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {eligibleDocumentKinds.map((kind) => (
+              <Button
+                key={kind}
+                intent="secondary"
+                size="sm"
+                onClick={() => setDocumentDialogKind(kind)}
+              >
+                {DOCUMENT_KIND_ACTION_LABELS[kind]}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+
         {internship ? (
           <ExtensionSubitems submissions={internship.submissions} />
+        ) : null}
+
+        {internship ? (
+          <DocumentSubitems documents={internship.documents} />
         ) : null}
       </Card.Content>
 
@@ -260,6 +387,18 @@ export function InternshipCard({
         internship={internship ?? null}
         onSuccess={handleSuccess}
       />
+
+      {documentDialogKind ? (
+        <InternshipDocumentUploadDialog
+          open={documentDialogKind !== null}
+          onOpenChange={(open) => {
+            if (!open) setDocumentDialogKind(null);
+          }}
+          kind={documentDialogKind}
+          kindLabel={DOCUMENT_KIND_LABELS[documentDialogKind]}
+          onSuccess={handleSuccess}
+        />
+      ) : null}
     </Card>
   );
 }

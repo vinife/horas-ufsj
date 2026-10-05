@@ -4,6 +4,7 @@ import * as React from "react"
 import { parseAsString, useQueryState } from "nuqs"
 import { Header } from "@/components/ds/header"
 import { UploadCard } from "@/components/ds/uploadcard"
+import { ExtensionCard } from "@/components/ds/extension-card"
 import { InternshipCard } from "@/components/ds/internshipcard"
 
 const TABS = [
@@ -55,12 +56,7 @@ export default function StudentDashboardLayout() {
           />
         )}
 
-        {activeTabId === "Extensão" && (
-          <UploadCard
-            title="Atividades de Extensão"
-            endpoint="/api/student/uploads/extensao"
-          />
-        )}
+        {activeTabId === "Extensão" && <ExtensionCard title="Extensão" />}
 
         {activeTabId === "Estágio" && (
           <InternshipCard

@@ -23,7 +23,7 @@ const CERTIFICATE_TITLES = [
   "Maratona de Programacao",
 ];
 
-const CERTIFICATE_TYPES = ["COMPLEMENTAR", "EXTENSAO"] as const;
+const CERTIFICATE_TYPES = ["COMPLEMENTAR"] as const;
 const STATUS_POOL = ["PENDING", "APPROVED", "REJECTED"] as const;
 const STATUS_WEIGHTS = [55, 35, 10];
 const REVIEWED_STATUS_POOL = ["APPROVED", "REJECTED"] as const;
@@ -265,7 +265,6 @@ async function createCertificates(students: StudentSeed[], perStudent: number) {
   for (const [studentIndex, student] of students.entries()) {
     const isReviewedOnlyStudent = studentIndex % 3 === 0;
     let hasPendingComplementar = false;
-    let hasPendingExtensao = false;
 
     for (let i = 1; i <= perStudent; i += 1) {
       const title = randomFrom(CERTIFICATE_TITLES);
@@ -281,10 +280,6 @@ async function createCertificates(students: StudentSeed[], perStudent: number) {
 
       if (status === "PENDING" && type === "COMPLEMENTAR") {
         hasPendingComplementar = true;
-      }
-
-      if (status === "PENDING" && type === "EXTENSAO") {
-        hasPendingExtensao = true;
       }
 
       let createdAt = randomDateInLastMonths(24);
@@ -406,31 +401,6 @@ async function createCertificates(students: StudentSeed[], perStudent: number) {
         aiRaw: null,
       });
     }
-
-    if (!isReviewedOnlyStudent && !hasPendingExtensao) {
-      const fallbackTitle = randomFrom(CERTIFICATE_TITLES);
-      const createdAt = new Date(Date.now() - 3 * DAY);
-      const baseSlug = slugify(`${student.email}-${fallbackTitle}-pending-e`);
-
-      rows.push({
-        title: fallbackTitle,
-        hours: 20,
-        certificatetype: "EXTENSAO",
-        fileUrl: `https://drive.google.com/file/d/${baseSlug}/view`,
-        fileId: baseSlug,
-        status: "PENDING",
-        feedback: null,
-        userId: student.id,
-        aiStatus: "QUEUED",
-        aiSuggestedTitle: null,
-        aiSuggestedHours: null,
-        aiFeedback: null,
-        createdAt,
-        updatedAt: createdAt,
-        aiDecision: "PENDING",
-        aiRaw: null,
-      });
-    }
   }
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
@@ -440,6 +410,92 @@ async function createCertificates(students: StudentSeed[], perStudent: number) {
   }
 
   return rows.length;
+}
+
+const EXTENSION_PROJECT_TITLES = [
+  "Programa de Extensão em Educação Digital",
+  "Projeto Comunidade e Tecnologia",
+  "Ação de Extensão em Software Livre",
+  "Programa de Inclusão Digital",
+  "Projeto de Extensão em Robótica Educacional",
+];
+
+const COORDINATOR_NAMES = [
+  "Prof. Dr. Carlos Almeida",
+  "Profa. Dra. Mariana Costa",
+  "Prof. Dr. Rafael Souza",
+  "Profa. Dra. Juliana Lima",
+];
+
+async function createExtensionProjects(students: StudentSeed[]) {
+  let total = 0;
+
+  for (const [studentIndex, student] of students.entries()) {
+    if (studentIndex % 3 !== 0) continue;
+
+    const scenario = Math.floor(studentIndex / 3) % 4;
+    const title = randomFrom(EXTENSION_PROJECT_TITLES);
+    const coordinatorName = randomFrom(COORDINATOR_NAMES);
+    const createdAt = randomDateInLastMonths(12);
+    const baseSlug = slugify(`${student.email}-${title}-extensao`);
+
+    const projectData = {
+      userId: student.id,
+      title,
+      coordinatorName,
+      coordinatorEmail: `${slugify(coordinatorName)}@ufsj.edu.br`,
+      coordinatorInstitution: "UFSJ",
+      workPlan:
+        "Atividades de extensão junto à comunidade, com encontros quinzenais e relatórios de acompanhamento.",
+      createdAt,
+      updatedAt: createdAt,
+    } satisfies Omit<Prisma.ExtensionProjectUncheckedCreateInput, "status">;
+
+    if (scenario === 0) {
+      await prisma.extensionProject.create({
+        data: { ...projectData, status: "PENDING" },
+      });
+    } else if (scenario === 1) {
+      await prisma.extensionProject.create({
+        data: { ...projectData, status: "ACTIVE" },
+      });
+    } else if (scenario === 2) {
+      const project = await prisma.extensionProject.create({
+        data: { ...projectData, status: "ACTIVE" },
+      });
+      await prisma.certificate.create({
+        data: {
+          title,
+          certificatetype: "EXTENSAO",
+          fileUrl: `https://drive.google.com/file/d/${baseSlug}/view`,
+          fileId: baseSlug,
+          status: "PENDING",
+          userId: student.id,
+          extensionProjectId: project.id,
+        },
+      });
+    } else {
+      const project = await prisma.extensionProject.create({
+        data: { ...projectData, status: "COMPLETED" },
+      });
+      await prisma.certificate.create({
+        data: {
+          title,
+          certificatetype: "EXTENSAO",
+          hours: 40,
+          fileUrl: `https://drive.google.com/file/d/${baseSlug}/view`,
+          fileId: baseSlug,
+          status: "APPROVED",
+          userId: student.id,
+          extensionProjectId: project.id,
+        },
+      });
+    }
+
+    total += 1;
+  }
+
+  return total;
 }
 
 async function cleanSeededData() {
@@ -496,10 +552,12 @@ export async function seed() {
     students,
     CERTIFICATES_PER_STUDENT,
   );
+  const extensionProjectsTotal = await createExtensionProjects(students);
 
   console.log("Seed finished:");
   console.log(`- students: ${students.length}`);
   console.log(`- certificates: ${certificatesTotal}`);
+  console.log(`- extension projects: ${extensionProjectsTotal}`);
   console.log(`- batch size: ${BATCH_SIZE}`);
   console.log(`- first admin: ${FIRST_ADMIN_EMAIL}`);
 }

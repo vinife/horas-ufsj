@@ -3,6 +3,8 @@ import {
   COMPLEMENTAR_HOUR_TYPE_LABELS,
 } from "@/lib/constants/complementar-hour-types";
 import { db } from "@/lib/db";
+import { enqueueEmail } from "@/lib/email/queue";
+import { studentStatusUpdateEmail } from "@/lib/email/templates";
 import {
   reviewCertificateSchema,
   uploadSearchQuerySchema,
@@ -13,12 +15,12 @@ import {
   validateQueryParams,
   validateRouteParams,
 } from "@/lib/validators/validate-request";
-import type { Prisma } from "@prisma/client";
+import type { CertificateType, Prisma } from "@prisma/client";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-type UploadType = "complementar" | "extensao";
+type UploadType = "complementar";
 
 type SortBy = "deadline" | "name" | "email";
 type SortDir = "asc" | "desc";
@@ -27,20 +29,12 @@ type StatusFilter = "pending" | "reviewed" | "all";
 const CERTIFICATE_REVIEW_DEADLINE_DAYS = 15;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
-function hasUploadPermission(
-  admin: {
-    canManageComplementar: boolean;
-    canManageExtensao: boolean;
-  },
-  uploadType: UploadType,
-) {
-  return uploadType === "complementar"
-    ? admin.canManageComplementar
-    : admin.canManageExtensao;
+function hasUploadPermission(admin: { canManageComplementar: boolean }) {
+  return admin.canManageComplementar;
 }
 
-function toCertificateType(uploadType: UploadType) {
-  return uploadType === "extensao" ? "EXTENSAO" : "COMPLEMENTAR";
+function toCertificateType(): CertificateType {
+  return "COMPLEMENTAR";
 }
 
 const reviewRouteParamsSchema = z.object({
@@ -112,7 +106,7 @@ function compareUsersForDeadline(
   return compareStrings(a.email, b.email, dir);
 }
 
-export function createAdminUploadGetHandler(uploadType: UploadType) {
+export function createAdminUploadGetHandler() {
   return async function GET(request: NextRequest) {
     const sessionId = request.cookies.get("session")?.value;
     if (!sessionId) {
@@ -130,7 +124,6 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
         role: true,
         accessStatus: true,
         canManageComplementar: true,
-        canManageExtensao: true,
       },
     });
 
@@ -138,7 +131,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
       !adminUser ||
       adminUser.role !== "ADMIN" ||
       adminUser.accessStatus !== "APPROVED" ||
-      !hasUploadPermission(adminUser, uploadType)
+      !hasUploadPermission(adminUser)
     ) {
       return NextResponse.json({ files: [] }, { status: 403 });
     }
@@ -156,12 +149,13 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
     const sortDir = query.sortDir as SortDir;
     const statusFilter = query.statusFilter as StatusFilter;
     const skip = (page - 1) * pageSize;
-    const certificateType = toCertificateType(uploadType);
+    const certificateType = toCertificateType();
 
     let statusFilterWhere: Prisma.UserWhereInput = {
       certificados: {
         some: {
           certificatetype: certificateType,
+          internshipId: null,
         },
       },
     };
@@ -171,6 +165,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
         certificados: {
           some: {
             certificatetype: certificateType,
+            internshipId: null,
             status: "PENDING",
           },
         },
@@ -184,6 +179,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
             certificados: {
               some: {
                 certificatetype: certificateType,
+                internshipId: null,
               },
             },
           },
@@ -191,6 +187,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
             certificados: {
               none: {
                 certificatetype: certificateType,
+                internshipId: null,
                 status: "PENDING",
               },
             },
@@ -211,6 +208,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
           certificados: {
             some: {
               certificatetype: certificateType,
+              internshipId: null,
               title: { contains: search, mode: "insensitive" },
             },
           },
@@ -235,6 +233,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
             where: {
               userId: { in: userIds },
               certificatetype: certificateType,
+              internshipId: null,
               status: "PENDING",
             },
             _min: {
@@ -286,6 +285,7 @@ export function createAdminUploadGetHandler(uploadType: UploadType) {
         certificados: {
           where: {
             certificatetype: certificateType,
+            internshipId: null,
           },
           orderBy: { createdAt: "desc" },
           select: {
@@ -395,7 +395,6 @@ export function createAdminUploadPatchHandler(uploadType: UploadType) {
         role: true,
         accessStatus: true,
         canManageComplementar: true,
-        canManageExtensao: true,
       },
     });
 
@@ -403,7 +402,7 @@ export function createAdminUploadPatchHandler(uploadType: UploadType) {
       !adminUser ||
       adminUser.role !== "ADMIN" ||
       adminUser.accessStatus !== "APPROVED" ||
-      !hasUploadPermission(adminUser, uploadType)
+      !hasUploadPermission(adminUser)
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -418,15 +417,18 @@ export function createAdminUploadPatchHandler(uploadType: UploadType) {
     const body = await validateJsonRequest(request, reviewCertificateSchema);
     if (body instanceof Response) return body;
 
-    const certificateType = toCertificateType(uploadType);
+    const certificateType = toCertificateType();
     const current = await db.certificate.findFirst({
       where: {
         id: validatedParams.id,
         certificatetype: certificateType,
+        internshipId: null,
       },
       select: {
         id: true,
         userId: true,
+        title: true,
+        user: { select: { email: true, name: true } },
       },
     });
 
@@ -492,6 +494,20 @@ export function createAdminUploadPatchHandler(uploadType: UploadType) {
         complementarHourType: true,
       },
     });
+
+    if (current.user.email) {
+      const { subject, html } = studentStatusUpdateEmail({
+        studentName: current.user.name ?? "aluno(a)",
+        itemLabel: `Complementar: ${current.title}`,
+        statusHeadline:
+          body.decision === "allow" ? "Certificado aprovado" : "Certificado rejeitado",
+        message:
+          body.decision === "allow"
+            ? `Seu certificado "${current.title}" foi aprovado com ${body.hours}h.`
+            : `Seu certificado "${current.title}" foi rejeitado. Motivo: ${updated.feedback ?? "não informado"}.`,
+      });
+      await enqueueEmail({ to: current.user.email, subject, html });
+    }
 
     return NextResponse.json({ certificate: updated }, { status: 200 });
   };

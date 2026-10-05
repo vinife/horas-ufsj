@@ -201,6 +201,60 @@ export function InternshipAdminCard({
     await refreshAfterMutation();
   };
 
+  const handleReviewDocument = async (payload: {
+    documentId: string;
+    decision: "allow" | "deny";
+    commentary?: string;
+  }) => {
+    if (!selectedInternship) return;
+
+    const res = await fetch(
+      `${endpoint}/${selectedInternship.id}/documents/${payload.documentId}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decision: payload.decision,
+          commentary: payload.commentary,
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const errorPayload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      throw new Error(errorPayload.error ?? "Falha ao validar documento.");
+    }
+
+    const data = (await res.json()) as { internship: AdminInternshipRow };
+    setSelectedInternship(data.internship);
+    await refreshAfterMutation();
+  };
+
+  const handleSetHours = async (payload: { hours: number }) => {
+    if (!selectedInternship) return;
+
+    const res = await fetch(`${endpoint}/${selectedInternship.id}/hours`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hours: payload.hours }),
+    });
+
+    if (!res.ok) {
+      const errorPayload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      throw new Error(errorPayload.error ?? "Falha ao salvar horas.");
+    }
+
+    const data = (await res.json()) as { internship: AdminInternshipRow };
+    setSelectedInternship(data.internship);
+    await refreshAfterMutation();
+  };
+
   const handleFinalize = async (payload: {
     status: "COMPLETED" | "TERMINATED";
   }) => {
@@ -347,7 +401,9 @@ export function InternshipAdminCard({
           onOpenChange={setIsDialogOpen}
           internship={selectedInternship}
           onReviewSubmission={handleReviewSubmission}
+          onReviewDocument={handleReviewDocument}
           onFinalize={handleFinalize}
+          onSetHours={handleSetHours}
         />
       </Card.Content>
     </Card>

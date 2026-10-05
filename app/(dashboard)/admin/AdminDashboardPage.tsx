@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { parseAsString, useQueryState } from "nuqs";
 import { AdminCard } from "@/components/ds/admincard";
 import { Card } from "@/components/ds/card";
+import { ExtensionAdminCard } from "@/components/ds/extension-admin-card";
 import { Header } from "@/components/ds/header";
 import { InternshipAdminCard } from "@/components/ds/internship-admin-card";
 import { UsersCard } from "@/components/ds/userscard";
@@ -199,12 +200,7 @@ export default function AdminDashboardPage() {
             />
           )}
           {activeTabId === "Extensão" && (
-            <AdminCard
-              title="Comprovantes de Atividades de Extensão"
-              endpoint="/api/admin/uploads/extensao"
-              uploadType="extensao"
-              className="m-0 h-full"
-            />
+            <ExtensionAdminCard title="Extensão" className="m-0 h-full" />
           )}
           {activeTabId === "Estágio" && (
             <InternshipAdminCard

@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
     include: {
       user: { select: { name: true, email: true } },
       submissions: true,
+      documents: true,
+      certificate: true,
     },
   });
 

@@ -51,11 +51,10 @@ export async function GET(request: NextRequest) {
         })
       : Promise.resolve(0),
     adminUser.canManageEstagio
-      ? db.internship.count({
-          where: {
-            status: "PENDING",
-          },
-        })
+      ? Promise.all([
+          db.internship.count({ where: { status: "PENDING" } }),
+          db.internshipDocument.count({ where: { status: "PENDING" } }),
+        ]).then(([internships, documents]) => internships + documents)
       : Promise.resolve(0),
     adminUser.canManageUsers
       ? db.user.count({

@@ -12,6 +12,14 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://ufsj_user:ufsj_password@postgres:5432/horas_ufsj_db?schema=public
       - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Conta de serviço do Google (Drive + envio de email via Gmail API) —
+      # valores lidos do .env na mesma pasta deste docker-compose.yml.
+      - GOOGLE_SERVICE_ACCOUNT_BASE64=${GOOGLE_SERVICE_ACCOUNT_BASE64}
+      - GOOGLE_DRIVE_STUDENTS_FOLDER_ID=${GOOGLE_DRIVE_STUDENTS_FOLDER_ID}
+      - GOOGLE_DRIVE_SHARED_DRIVE_ID=${GOOGLE_DRIVE_SHARED_DRIVE_ID}
+      - GOOGLE_WORKSPACE_SENDER_EMAIL=${GOOGLE_WORKSPACE_SENDER_EMAIL}
     depends_on:
       - postgres
       - redis

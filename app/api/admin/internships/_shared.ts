@@ -1,6 +1,12 @@
 import { db } from "@/lib/db";
 import { getSession, type SessionPayload } from "@/lib/session";
-import type { Internship, InternshipSubmission, User } from "@prisma/client";
+import type {
+  Certificate,
+  Internship,
+  InternshipDocument,
+  InternshipSubmission,
+  User,
+} from "@prisma/client";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
@@ -17,6 +23,19 @@ export type AdminInternshipSubmissionPayload = {
   createdAt: string;
 };
 
+export type AdminInternshipDocumentPayload = {
+  id: string;
+  kind:
+    | "PARTIAL_REPORT"
+    | "COMPLETION_TERM"
+    | "FINAL_REPORT"
+    | "TERMINATION_TERM";
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  feedback: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+};
+
 export type AdminInternshipRow = {
   id: string;
   userId: string;
@@ -29,6 +48,8 @@ export type AdminInternshipRow = {
   end: string;
   feedback: string | null;
   submissions: AdminInternshipSubmissionPayload[];
+  documents: AdminInternshipDocumentPayload[];
+  certificate: { hours: number | null } | null;
 };
 
 export async function requireInternshipAdmin(
@@ -82,10 +103,25 @@ function toSubmissionPayload(
   };
 }
 
+function toDocumentPayload(
+  document: InternshipDocument,
+): AdminInternshipDocumentPayload {
+  return {
+    id: document.id,
+    kind: document.kind,
+    status: document.status,
+    feedback: document.feedback,
+    createdAt: document.createdAt.toISOString(),
+    reviewedAt: document.reviewedAt?.toISOString() ?? null,
+  };
+}
+
 export function toAdminInternshipRow(
   internship: Internship & {
     submissions: InternshipSubmission[];
     user: Pick<User, "name" | "email">;
+    documents?: InternshipDocument[];
+    certificate?: Certificate | null;
   },
 ): AdminInternshipRow {
   return {
@@ -102,7 +138,47 @@ export function toAdminInternshipRow(
     submissions: [...internship.submissions]
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map(toSubmissionPayload),
+    documents: [...(internship.documents ?? [])]
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map(toDocumentPayload),
+    certificate: internship.certificate
+      ? { hours: internship.certificate.hours }
+      : null,
   };
+}
+
+/**
+ * Deterministically picks which file backs the synthetic hours Certificate:
+ * prefer the most recently approved FINAL_REPORT, then the most recently
+ * approved COMPLETION_TERM, falling back to the INITIAL submission's file
+ * (always present and approved once the internship reached ACTIVE).
+ */
+export async function resolveInternshipHoursFile(
+  internshipId: string,
+): Promise<{ fileUrl: string; fileId: string }> {
+  const finalReport = await db.internshipDocument.findFirst({
+    where: { internshipId, kind: "FINAL_REPORT", status: "APPROVED" },
+    orderBy: { createdAt: "desc" },
+    select: { fileUrl: true, fileId: true },
+  });
+  if (finalReport) return finalReport;
+
+  const completionTerm = await db.internshipDocument.findFirst({
+    where: { internshipId, kind: "COMPLETION_TERM", status: "APPROVED" },
+    orderBy: { createdAt: "desc" },
+    select: { fileUrl: true, fileId: true },
+  });
+  if (completionTerm) return completionTerm;
+
+  const initialSubmission = await db.internshipSubmission.findFirst({
+    where: { internshipId, kind: "INITIAL" },
+    select: { fileUrl: true, fileId: true },
+  });
+  if (initialSubmission) return initialSubmission;
+
+  throw new Error(
+    `Nenhum arquivo disponível para vincular ao certificado de horas do estágio ${internshipId}.`,
+  );
 }
 
 function compareStrings(a: string | null, b: string | null) {

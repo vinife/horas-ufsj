@@ -21,32 +21,24 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { Readable } from "node:stream";
 
-type UploadType = "complementar" | "extensao";
+type UploadType = "complementar";
 
-// const HOURS_LIMIT_STRATEGY: LimitStrategy =
-//   process.env.HOURS_LIMIT_STRATEGY === "clamp" ? "clamp" : "reject";
-async function getHoursLimitForType(uploadType: UploadType) {
+async function getHoursLimitForType() {
   const config = await db.systemConfig.findUnique({
     where: { id: "current_config" },
-    select: { complementarLimit: true, extensaoLimit: true },
+    select: { complementarLimit: true },
   });
 
-  if (uploadType === "extensao") {
-    // O schema.prisma define o padrão como 200
-    return config?.extensaoLimit ?? 200;
-  }
   // O schema.prisma define o padrão como 120
   return config?.complementarLimit ?? 120;
 }
 
-function toCertificateType(uploadType: UploadType) {
-  return (
-    uploadType === "extensao" ? "EXTENSAO" : "COMPLEMENTAR"
-  ) satisfies CertificateType;
+function toCertificateType(): CertificateType {
+  return "COMPLEMENTAR";
 }
 
-function toTypeFolderName(uploadType: UploadType) {
-  return uploadType === "extensao" ? "Extensao" : "Complementar";
+function toTypeFolderName() {
+  return "Complementar";
 }
 
 export function createUploadHandlers(uploadType: UploadType) {
@@ -71,10 +63,10 @@ export function createUploadHandlers(uploadType: UploadType) {
     if (query instanceof Response) return query;
 
     const search = query.q.trim();
-    const limit = await getHoursLimitForType(uploadType);
+    const limit = await getHoursLimitForType();
 
     const where: Prisma.CertificateWhereInput = {
-      certificatetype: toCertificateType(uploadType),
+      certificatetype: toCertificateType(),
       userId: session.sub,
     };
     if (search) {
@@ -143,7 +135,7 @@ export function createUploadHandlers(uploadType: UploadType) {
       return NextResponse.json({ error: "Invalid hours" }, { status: 400 });
     }
 
-    const hoursLimit = await getHoursLimitForType(uploadType);
+    const hoursLimit = await getHoursLimitForType();
     if (
       !Number.isFinite(hoursLimit) ||
       !Number.isInteger(hoursLimit) ||
@@ -155,7 +147,7 @@ export function createUploadHandlers(uploadType: UploadType) {
       );
     }
 
-    const certificateType = toCertificateType(uploadType);
+    const certificateType = toCertificateType();
     const usageWhere: Prisma.CertificateWhereInput = {
       userId: session.sub,
       certificatetype: certificateType,
@@ -204,7 +196,7 @@ export function createUploadHandlers(uploadType: UploadType) {
     const typeFolder = await ensureChildFolder(
       drive,
       studentFolder,
-      toTypeFolderName(uploadType),
+      toTypeFolderName(),
     );
 
     const arrayBuffer = await file.arrayBuffer();
@@ -296,7 +288,7 @@ export function createUploadHandlers(uploadType: UploadType) {
     const deleteWhere: Prisma.CertificateWhereInput = {
       id: certificateId,
       userId: session.sub,
-      certificatetype: toCertificateType(uploadType),
+      certificatetype: toCertificateType(),
     };
 
     const certificate = await db.certificate.findFirst({

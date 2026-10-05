@@ -11,7 +11,9 @@ import { internshipFormDataSchema } from "@/lib/schemas/internship.schema";
 import { getSession, type SessionPayload } from "@/lib/session";
 import { validateFormData } from "@/lib/validators/validate-form-data";
 import type {
+  Certificate,
   Internship,
+  InternshipDocument,
   InternshipSubmission,
   Prisma,
 } from "@prisma/client";
@@ -34,6 +36,19 @@ export type InternshipSubmissionPayload = {
   createdAt: string;
 };
 
+export type InternshipDocumentPayload = {
+  id: string;
+  kind:
+    | "PARTIAL_REPORT"
+    | "COMPLETION_TERM"
+    | "FINAL_REPORT"
+    | "TERMINATION_TERM";
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  feedback: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+};
+
 export type InternshipPayload = {
   id: string;
   status: "PENDING" | "REJECTED" | "ACTIVE" | "COMPLETED" | "TERMINATED";
@@ -43,6 +58,8 @@ export type InternshipPayload = {
   end: string;
   feedback: string | null;
   submissions: InternshipSubmissionPayload[];
+  documents: InternshipDocumentPayload[];
+  certificate: { hours: number | null } | null;
 };
 
 function toSubmissionPayload(
@@ -62,8 +79,25 @@ function toSubmissionPayload(
   };
 }
 
+export function toDocumentPayload(
+  document: InternshipDocument,
+): InternshipDocumentPayload {
+  return {
+    id: document.id,
+    kind: document.kind,
+    status: document.status,
+    feedback: document.feedback,
+    createdAt: document.createdAt.toISOString(),
+    reviewedAt: document.reviewedAt?.toISOString() ?? null,
+  };
+}
+
 export function toInternshipPayload(
-  internship: Internship & { submissions: InternshipSubmission[] },
+  internship: Internship & {
+    submissions: InternshipSubmission[];
+    documents?: InternshipDocument[];
+    certificate?: Certificate | null;
+  },
 ): InternshipPayload {
   return {
     id: internship.id,
@@ -76,6 +110,12 @@ export function toInternshipPayload(
     submissions: [...internship.submissions]
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map(toSubmissionPayload),
+    documents: [...(internship.documents ?? [])]
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map(toDocumentPayload),
+    certificate: internship.certificate
+      ? { hours: internship.certificate.hours }
+      : null,
   };
 }
 
@@ -98,7 +138,7 @@ export async function requireStudentSession(
   return { session };
 }
 
-async function uploadInternshipFile(
+export async function uploadInternshipFile(
   drive: Awaited<ReturnType<typeof getDriveClient>>,
   session: SessionPayload,
   file: File,
@@ -150,7 +190,7 @@ export async function GET(request: NextRequest) {
   const internship = await db.internship.findFirst({
     where: { userId: session.sub },
     orderBy: { createdAt: "desc" },
-    include: { submissions: true },
+    include: { submissions: true, documents: true, certificate: true },
   });
 
   return NextResponse.json(

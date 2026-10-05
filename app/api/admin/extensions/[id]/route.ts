@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { enqueueEmail } from "@/lib/email/queue";
 import { studentStatusUpdateEmail } from "@/lib/email/templates";
-import { finalizeInternshipSchema } from "@/lib/schemas/internship.schema";
+import { reviewExtensionProjectSchema } from "@/lib/schemas/extension.schema";
 import {
   validateJsonRequest,
   validateRouteParams,
@@ -9,7 +9,10 @@ import {
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireInternshipAdmin, toAdminInternshipRow } from "../../_shared";
+import {
+  requireExtensionAdmin,
+  toAdminProjectPayload,
+} from "../_shared";
 
 const routeParamsSchema = z.object({
   id: z.string().trim().min(1),
@@ -19,59 +22,64 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireInternshipAdmin(request);
+  const auth = await requireExtensionAdmin(request);
   if (auth instanceof Response) return auth;
 
   const params = await context.params;
   const validatedParams = validateRouteParams(params, routeParamsSchema);
   if (validatedParams instanceof Response) return validatedParams;
 
-  const body = await validateJsonRequest(request, finalizeInternshipSchema);
+  const body = await validateJsonRequest(request, reviewExtensionProjectSchema);
   if (body instanceof Response) return body;
 
-  const internship = await db.internship.findUnique({
+  const project = await db.extensionProject.findUnique({
     where: { id: validatedParams.id },
   });
 
-  if (!internship) {
+  if (!project) {
     return NextResponse.json(
-      { error: "Estágio não encontrado." },
+      { error: "Projeto de extensão não encontrado." },
       { status: 404 },
     );
   }
 
-  if (internship.status !== "ACTIVE") {
+  if (project.status !== "PENDING") {
     return NextResponse.json(
-      { error: "Apenas estágios ativos podem ser finalizados." },
+      { error: "Esta proposta já foi avaliada." },
       { status: 409 },
     );
   }
 
-  const updated = await db.internship.update({
-    where: { id: internship.id },
-    data: { status: body.status },
+  const commentary = body.commentary?.trim() || null;
+
+  const updated = await db.extensionProject.update({
+    where: { id: project.id },
+    data:
+      body.decision === "allow"
+        ? { status: "ACTIVE", feedback: null }
+        : { status: "REJECTED", feedback: commentary },
     include: {
       user: { select: { name: true, email: true } },
-      submissions: true,
-      documents: true,
       certificate: true,
     },
   });
 
   if (updated.user.email) {
-    const statusLabel =
-      body.status === "COMPLETED" ? "Estágio concluído" : "Estágio encerrado";
     const { subject, html } = studentStatusUpdateEmail({
       studentName: updated.user.name ?? "aluno(a)",
-      itemLabel: "Estágio",
-      statusHeadline: statusLabel,
-      message: `Seu estágio foi marcado como "${statusLabel.toLowerCase()}" pela coordenação.`,
+      itemLabel: `Extensão: ${updated.title}`,
+      statusHeadline:
+        body.decision === "allow" ? "Proposta aprovada" : "Proposta rejeitada",
+      message:
+        body.decision === "allow"
+          ? `Sua proposta de extensão "${updated.title}" foi aprovada. Você já pode enviar o certificado assinado.`
+          : `Sua proposta de extensão "${updated.title}" foi rejeitada. Motivo: ${updated.feedback ?? "não informado"}.`,
     });
     await enqueueEmail({ to: updated.user.email, subject, html });
   }
 
   return NextResponse.json(
-    { internship: toAdminInternshipRow(updated) },
+    { project: toAdminProjectPayload(updated) },
     { status: 200 },
   );
 }

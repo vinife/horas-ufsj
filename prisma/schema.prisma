@@ -76,6 +76,20 @@ enum InternshipSubmissionKind {
   EXTENSION
 }
 
+enum InternshipDocumentKind {
+  PARTIAL_REPORT
+  COMPLETION_TERM
+  FINAL_REPORT
+  TERMINATION_TERM
+}
+
+enum ExtensionProjectStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  COMPLETED
+}
+
 model User {
   id           String    @id @default(cuid())
   name         String?
@@ -93,8 +107,9 @@ model User {
   canManageUsers        Boolean @default(false) // Pode gerir aprovações/permissões de usuários
 
   // Relacionamento: Um aluno tem vários certificados
-  certificados Certificate[]
-  internships  Internship[]
+  certificados      Certificate[]
+  internships       Internship[]
+  extensionProjects ExtensionProject[]
 }
 
 model Certificate {
@@ -128,6 +143,14 @@ model Certificate {
   // Conexão com o Aluno
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Conexão opcional com o Estágio (certificado sintético de horas de estágio)
+  internshipId String?     @unique
+  internship   Internship? @relation(fields: [internshipId], references: [id])
+
+  // Conexão opcional com o projeto de Extensão (certificado final assinado)
+  extensionProjectId String?           @unique
+  extensionProject   ExtensionProject? @relation(fields: [extensionProjectId], references: [id])
 }
 
 model Internship {
@@ -144,6 +167,8 @@ model Internship {
   updatedAt  DateTime         @updatedAt
 
   submissions InternshipSubmission[]
+  documents   InternshipDocument[]
+  certificate Certificate?
 }
 
 model InternshipSubmission {
@@ -161,6 +186,36 @@ model InternshipSubmission {
   feedback     String?
   createdAt    DateTime                 @default(now())
   reviewedAt   DateTime?
+}
+
+model InternshipDocument {
+  id           String                 @id @default(cuid())
+  internshipId String
+  internship   Internship             @relation(fields: [internshipId], references: [id], onDelete: Cascade)
+  kind         InternshipDocumentKind
+  fileUrl      String
+  fileId       String
+  status       Status                 @default(PENDING)
+  feedback     String?
+  createdAt    DateTime               @default(now())
+  reviewedAt   DateTime?
+}
+
+model ExtensionProject {
+  id                     String                 @id @default(cuid())
+  userId                 String
+  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                  String
+  coordinatorName        String
+  coordinatorEmail       String
+  coordinatorInstitution String
+  workPlan               String
+  status                 ExtensionProjectStatus @default(PENDING)
+  feedback               String?
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  certificate Certificate?
 }
 
 model SystemConfig {

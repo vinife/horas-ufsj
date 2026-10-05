@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { enqueueEmail } from "@/lib/email/queue";
+import { studentStatusUpdateEmail } from "@/lib/email/templates";
 import { reviewInternshipSubmissionSchema } from "@/lib/schemas/internship.schema";
 import {
   validateJsonRequest,
@@ -95,6 +97,8 @@ export async function PATCH(
     include: {
       user: { select: { name: true, email: true } },
       submissions: true,
+      documents: true,
+      certificate: true,
     },
   });
 
@@ -103,6 +107,21 @@ export async function PATCH(
       { error: "Estágio não encontrado." },
       { status: 404 },
     );
+  }
+
+  if (updated.user.email) {
+    const kindLabel = submission.kind === "EXTENSION" ? "Aditivo" : "Período inicial";
+    const { subject, html } = studentStatusUpdateEmail({
+      studentName: updated.user.name ?? "aluno(a)",
+      itemLabel: "Estágio",
+      statusHeadline:
+        body.decision === "allow" ? `${kindLabel} aprovado` : `${kindLabel} rejeitado`,
+      message:
+        body.decision === "allow"
+          ? `Seu ${kindLabel.toLowerCase()} de estágio foi aprovado.`
+          : `Seu ${kindLabel.toLowerCase()} de estágio foi rejeitado. Motivo: ${commentary ?? "não informado"}.`,
+    });
+    await enqueueEmail({ to: updated.user.email, subject, html });
   }
 
   return NextResponse.json(
